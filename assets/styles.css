@@ -278,6 +278,44 @@ button:focus-visible {
   align-items: center;
   gap: 8px;
 }
+/* the logo and the sign-out button share one line */
+.ws-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.ws-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 9px 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.ws-signout svg { width: 13px; height: 13px; flex-shrink: 0; }
+.ws-signout:hover {
+  background: #fef2f2;
+  color: var(--danger);
+  border-color: #fecaca;
+}
+.ws-signout:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+body:not(.logged-in) .ws-signout { display: none; }
 .ws-meta {
   flex: 1;
   display: flex;
@@ -1112,6 +1150,9 @@ body { opacity: 1; transition: opacity .12s ease; }
 @media (max-width: 900px) {
   :root { --sidebar-w: 64px; }
   .logo-text, .nav-label, .nav-badge, .nav-ext, .sync-card, .workspace-foot .ws-meta, .crumb-sep, .crumb-cur + span:first-of-type, .ws-more { display: none; }
+  /* on a narrow sidebar the sign-out keeps only its icon */
+  .ws-signout span { display: none; }
+  .ws-signout { padding: 0 7px; }
   .nav-item { justify-content: center; padding: 10px; }
   .sidebar-head { padding: 16px 12px; }
   .sidebar-foot { padding: 10px 8px 14px; }
