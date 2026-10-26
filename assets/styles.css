@@ -1,0 +1,16 @@
+/* === Medha Program Management — stylesheet === */
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fafafa;
+  --bg-2: #f7f6fb;
+  --border: #ece9f4;
+  --border-2: #e5e7eb;
+  --text: #1e1b4b;
+  --text-muted: #64748b;
+  --primary: #5b21b6;
+  --primary-bg: #f3e8ff;
+  --radius: 12px;
+}
+/* NOTE: Full file content is large. This is a placeholder while uploading full assets. */
+body { font-family: Inter, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+.sidebar { display: none; }
