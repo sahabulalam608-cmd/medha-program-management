@@ -27,6 +27,7 @@ const App = (() => {
     bindNav();
     bindTopbar();
     bindConfigModal();
+    bindSignOut();
     bindSheetGuide();
     bindKeyboard();
     // Wire any Sheet playbook links to the right URL
@@ -174,6 +175,25 @@ const App = (() => {
     els.configModal.hidden = false;
     els.configUrl.value = Api.getBackendUrl() || "";
     setTimeout(() => els.configUrl.focus(), 60);
+  };
+
+  /* --- the small sign-out button in the sidebar footer --- */
+  const bindSignOut = () => {
+    const btn = document.getElementById("wsSignOut");
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      const ok = await Modal.confirm({
+        title: "Sign out",
+        message: "Sign out of Medha Program Management?",
+        okText: "Sign out",
+        cancelText: "Stay signed in",
+        danger: true,
+      });
+      if (!ok) return;
+      document.getElementById("accountMenu")?.remove();
+      if (window.Login && typeof window.Login.logout === "function") window.Login.logout();
+      else { location.reload(); }
+    });
   };
 
   const bindConfigModal = () => {
