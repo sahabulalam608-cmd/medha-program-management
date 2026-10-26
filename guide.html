@@ -243,7 +243,7 @@
         </tr>
       </tbody>
     </table>
-    <p class="lead">Both IDs are already written into <code>backend/Code.gs</code>, so you do not have to type them anywhere. You can still set them as Script Properties if you would rather be explicit.</p>
+    <p class="lead">All three IDs are already written into <code>backend/Code.gs</code>, so you do not have to type them anywhere &mdash; the code falls back to them on its own. You can still set them as Script Properties if you would rather be explicit, but if you type one by hand, check it character by character: a wrong ID there breaks that sheet.</p>
 
     <h3>One more spreadsheet — the NCM PART-2 list</h3>
     <p>The NCM PART-2 members come from <b>Medha Batch-01 Master</b>
@@ -289,11 +289,14 @@
       Click <code>Code.gs</code> in the editor, select all, paste. Save (<b>Ctrl + S</b>). Rename the project to something like <code>Medha Program Backend</code>.
     </div>
     <div class="step">
-      <div class="t"><i>4</i> Check the two IDs</div>
-      <b>Project Settings</b> (gear icon) → <b>Script Properties</b> → add:
-      <pre>SHEET_ID    = 1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII
-NCM_SHEET_ID = 1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE</pre>
-      Also set <b>Time zone</b> to <code>Asia/Dhaka</code>.
+      <div class="t"><i>4</i> Set the time zone (and optionally the three IDs)</div>
+      <b>Project Settings</b> (gear icon) → set <b>Time zone</b> to <code>Asia/Dhaka</code>.
+      <br><br>
+      <b>Script Properties</b> is optional &mdash; the IDs are already inside the code. If you add them, add all three and paste them rather than typing:
+      <pre>SHEET_ID        = 1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII
+NCM_SHEET_ID     = 1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE
+BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</pre>
+      If you are not sure a value is typed exactly right, delete that property &mdash; the code then uses the ID it already carries.
     </div>
     <div class="step">
       <div class="t"><i>5</i> Run the one-time setup</div>
