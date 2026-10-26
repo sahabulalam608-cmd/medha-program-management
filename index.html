@@ -5,9 +5,296 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#5b21b6" />
   <title>Medha Program Management</title>
-  <!-- truncated for this call - will fix with full content -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b21b6'/%3E%3Ctext x='50' y='68' font-family='-apple-system,system-ui' font-size='60' font-weight='800' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E" />
+  <link rel="preload" as="image" href="assets/img/medha-logo-256.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap" /></noscript>
+  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="assets/mail.css" />
+  <link rel="stylesheet" href="assets/login.css" />
+  <link rel="stylesheet" href="assets/support.css" />
+  <link rel="stylesheet" href="assets/results.css" />
+  <link rel="stylesheet" href="assets/notify.css" />
+  <link rel="stylesheet" href="assets/vault.css" />
 </head>
-<body>
-  <p>Placeholder - full content coming</p>
+<body class="font-loading">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="logo">
+        <img class="logo-img" src="assets/img/medha-logo-256.png" alt="Medha Program Management" width="40" height="40" />
+        <span class="logo-text">
+          <span class="logo-title">Medha</span>
+          <span class="logo-sub">PROGRAM PORTAL</span>
+        </span>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="overview">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+        <span class="nav-label">Overview</span>
+      </button>
+      <button class="nav-item" data-view="batches">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="nav-label">Batches</span>
+      </button>
+      <button class="nav-item" data-view="members">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="nav-label">Members</span>
+      </button>
+      <button class="nav-item" data-view="payments">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+        <span class="nav-label">Payments</span>
+      </button>
+      <button class="nav-item" data-view="agreements">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span>
+        <span class="nav-label">Agreements</span>
+      </button>
+      <button class="nav-item" data-view="classes">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        <span class="nav-label">Classes &amp; attendance</span>
+      </button>
+      <button class="nav-item" data-view="tasks">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+        <span class="nav-label">Tasks &amp; workshops</span>
+      </button>
+      <button class="nav-item" data-view="feedback">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="nav-label">Feedback</span>
+      </button>
+      <button class="nav-item" data-view="scores">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        <span class="nav-label">Scores &amp; results</span>
+      </button>
+      <button class="nav-item" data-view="evidence">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+        <span class="nav-label">Evidence &amp; reports</span>
+      </button>
+      <button class="nav-item" data-view="payadmin">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+        <span class="nav-label">Payments admin</span>
+      </button>
+      <button class="nav-item" data-view="support">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+        <span class="nav-label">Support</span>
+      </button>
+      <button class="nav-item" data-view="files">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="nav-label">Files</span>
+      </button>
+      <button class="nav-item" data-view="mail">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+        <span class="nav-label">Mail portal</span>
+        <span class="nav-badge" id="mailBadge" hidden></span>
+        <span class="nav-ext" title="Open inbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </span>
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+
+      <div class="workspace-foot">
+        <img class="ws-logo" src="assets/img/ota-logo-600.png" alt="Online Tech Academy" height="24" />
+        <div class="ws-row">
+          <div class="ws-meta">
+            <span class="ws-name">Medha workspace</span>
+            <span class="ws-sub">Online Tech Academy</span>
+          </div>
+          <button class="ws-more" id="wsMoreBtn" aria-label="Account options">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <main class="main">
+    <!-- Top bar -->
+    <header class="topbar">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <span>Workspace</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="crumb-sep"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="crumb-cur" id="crumbCur">Overview</span>
+      </nav>
+
+      <div class="topbar-actions">
+        <button class="sync-pill" id="syncPill" type="button"
+                title="Sheet connection — click to manage the backend"></button>
+        <button class="export-btn" id="exportBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <section class="content" id="content">
+      <!-- Populated by app.js -->
+    </section>
+
+    <footer class="foot">
+      © 2026 Online Tech Academy · Medha Program Management
+    </footer>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- ============ LOGIN SCREEN ============ -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-bg" aria-hidden="true">
+      <span class="blob b1"></span>
+      <span class="blob b2"></span>
+      <span class="blob b3"></span>
+      <span class="grid-overlay"></span>
+    </div>
+
+    <div class="login-card" id="loginCard">
+      <div class="login-brand">
+        <div class="login-logo-wrap">
+          <span class="logo-ring"></span>
+          <img class="login-logo" src="assets/img/medha-logo-256.png" alt="Medha" width="92" height="92" />
+          <svg class="login-tick" viewBox="0 0 52 52" aria-hidden="true">
+            <path d="M14 27 L22 35 L38 18" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="login-title">Medha Program Management</h1>
+        <p class="login-sub">Sign in to your workspace</p>
+        <img class="login-ota" src="assets/img/ota-logo-1000.png" alt="Online Tech Academy" height="30" />
+      </div>
+
+      <form class="login-form" id="loginForm" autocomplete="off" novalidate>
+        <label class="lf-label" for="loginUser">User name</label>
+        <div class="lf-field">
+          <svg class="lf-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <input type="text" id="loginUser" placeholder="Enter your user name" autocomplete="username" spellcheck="false" />
+        </div>
+
+        <label class="lf-label" for="loginPass">Password</label>
+        <div class="lf-field">
+          <svg class="lf-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password" />
+          <button type="button" class="lf-eye" id="loginEye" aria-label="Show password">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+
+        <div class="lf-error" id="loginError" role="alert"></div>
+
+        <button type="submit" class="lf-btn" id="loginBtn">
+          <span class="lf-btn-label">Sign in</span>
+          <span class="lf-btn-spinner" aria-hidden="true"></span>
+          <span class="lf-btn-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </span>
+        </button>
+
+        <div class="lf-progress" aria-hidden="true"><span></span></div>
+      </form>
+
+      <p class="login-foot">Online Tech Academy · Medha Program</p>
+    </div>
+  </div>
+
+  <!-- Config modal -->
+  <div class="modal-overlay" id="configModal" hidden>
+    <div class="modal">
+      <header class="modal-head">
+        <h3>Connect backend</h3>
+        <button class="modal-close" id="configClose" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <p class="modal-help">Paste your deployed Apps Script Web App URL to enable Program Mail, Mail badge, schedule and Gmail sync. The site works in <b>read-only</b> mode using Google Sheets CSV until then.</p>
+        <label>Apps Script Web App URL</label>
+        <input type="url" id="configUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+        <div class="modal-actions">
+          <button class="btn-ghost" id="configSkip">Read-only mode</button>
+          <button class="btn-primary" id="configSave">Save &amp; connect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sheet playbook modal -->
+  <div class="modal-overlay" id="sheetGuideModal" hidden>
+    <div class="modal" style="max-width:640px;max-height:88vh;display:flex;flex-direction:column;">
+      <header class="modal-head">
+        <h3>📋 Sheet playbook</h3>
+        <button class="modal-close" id="sheetGuideClose" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body" style="overflow-y:auto;flex:1;">
+        <p class="modal-help" style="margin-top:0;">
+          The MPM site reads from and writes to the same Google Sheet you already use. So even if the site is offline, you can still do everything from the sheet directly.
+        </p>
+
+        <a class="panel-link" href="https://docs.google.com/spreadsheets/d/${Api.SHEET_ID}/edit" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);padding:8px 14px;border-radius:8px;margin-bottom:14px;font-weight:700;">
+          Open the Medha sheet ↗
+        </a>
+
+        <h4 style="margin:14px 0 8px;">Tabs in the sheet</h4>
+        <ul style="padding-left:18px;margin:0;color:var(--text);font-size:13px;line-height:1.7;">
+          <li><code>Members NCM-P1</code> — everyone in PART-1</li>
+          <li><code>Members NCM-P2</code> — everyone in PART-2</li>
+          <li><code>EmailLog</code> — every mail the site/Apps Script sent</li>
+          <li><code>Settings</code> — Form on/off, deadlines, closed messages</li>
+          <li><code>_ProgramMail_Help</code> — auto-created instructions</li>
+        </ul>
+
+        <h4 style="margin:14px 0 8px;">Member rows — what each column means</h4>
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+          <tr style="background:#fafafa;"><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Col</th><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Meaning</th><th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);">Editable?</th></tr>
+          <tr><td style="padding:6px 8px;">A · SL</td><td style="padding:6px 8px;">Serial (1, 2, 3…)</td><td style="padding:6px 8px;">Yes — any number</td></tr>
+          <tr><td style="padding:6px 8px;">B · Member ID</td><td style="padding:6px 8px;">Unique ID (e.g. <code>NCM-01</code>)</td><td style="padding:6px 8px;">Yes — but keep unique</td></tr>
+          <tr><td style="padding:6px 8px;">C · Name</td><td style="padding:6px 8px;">Full name</td><td style="padding:6px 8px;">Yes</td></tr>
+          <tr><td style="padding:6px 8px;">D · Email</td><td style="padding:6px 8px;">Valid email address</td><td style="padding:6px 8px;">Yes</td></tr>
+          <tr><td style="padding:6px 8px;">E · Status</td><td style="padding:6px 8px;"><code>Pending</code> · <code>Sent</code> · <code>Skip</code> · <code>Hold</code></td><td style="padding:6px 8px;">Dropdown — choose one</td></tr>
+          <tr><td style="padding:6px 8px;">F · SentAt</td><td style="padding:6px 8px;">When the mail was delivered</td><td style="padding:6px 8px;">Auto, or manual date</td></tr>
+        </table>
+
+        <h4 style="margin:14px 0 8px;">Common tasks without the site</h4>
+        <ul style="padding-left:18px;margin:0;color:var(--text);font-size:13px;line-height:1.7;">
+          <li><b>Mark someone as Sent:</b> Status cell → pick <code>Sent</code> → type timestamp in SentAt (e.g. <code>21-10-2026 13:50</code>)</li>
+          <li><b>Skip a recipient:</b> Status → <code>Skip</code> (the site never sends to them)</li>
+          <li><b>Add new member:</b> next empty row, fill SL/Member ID/Name/Email. They'll appear on the site within 30s.</li>
+          <li><b>Bulk update:</b> select multiple rows → Edit Status cell once → picks apply to all</li>
+          <li><b>Open/close Application form:</b> <code>Settings</code> tab → <code>FORM_OPEN</code> → <code>YES</code> or <code>NO</code></li>
+          <li><b>Set form deadline:</b> <code>Settings</code> → <code>FORM_DEADLINE</code> → <code>21-10-2026 23:59</code></li>
+          <li><b>Edit closed-message:</b> <code>Settings</code> → <code>CLOSED_MSG_BN</code> / <code>CLOSED_MSG_EN</code></li>
+          <li><b>See who got mail:</b> <code>EmailLog</code> tab, sort by Timestamp desc</li>
+        </ul>
+
+        <h4 style="margin:14px 0 8px;">Reset dropdowns after manual edits</h4>
+        <p style="font-size:13px;color:var(--text-muted);margin:0;">If Status cells stop showing the dropdown (e.g. you paste rows from elsewhere), run <code>setupProgramSheets</code> in the Apps Script editor — it re-applies validation and headers. Re-run any time, it's idempotent.</p>
+
+        <h4 style="margin:14px 0 8px;">Two-way sync guarantee</h4>
+        <p style="font-size:13px;color:var(--text-muted);margin:0;">Every change the site makes (mails sent, status updates, settings toggles) writes directly to the sheet via Apps Script. If you change something in the sheet, refresh the site (↻ button on Members page) — it pulls fresh within seconds.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/icons.js"></script>
+  <script src="assets/api.js"></script>
+  <script src="assets/notify.js"></script>
+  <script src="assets/results.js"></script>
+  <script src="assets/vault.js"></script>
+  <script src="assets/login.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    // Preload the sheet so the first paint has data ready
+    (function () {
+      try {
+        var link = document.createElement("link");
+        link.rel = "preconnect";
+        link.href = "https://docs.google.com";
+        document.head.appendChild(link);
+      } catch (e) {}
+    })();
+  </script>
 </body>
 </html>

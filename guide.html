@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Publish this site free — Medha Program Management</title>
+<meta name="description" content="Step-by-step guide to publish Medha Program Management on free static hosting and connect the Apps Script backend." />
+<link rel="icon" href="assets/img/medha-logo-256.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" /></noscript>
+<style>
+  :root{
+    --bg:#fafafa; --card:#fff; --text:#1e1b4b; --muted:#64748b; --dim:#94a3b8;
+    --primary:#5b21b6; --primary-2:#7c3aed; --primary-bg:#f5f3ff; --border:#ece9f4;
+    --ok:#047857; --ok-bg:#ecfdf5; --warn:#b45309; --warn-bg:#fffbeb;
+    --radius:14px;
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:0 20px 80px}
+
+  header.top{background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 55%,#7c3aed 100%);color:#fff;padding:38px 0 34px;margin-bottom:-26px}
+  header.top .wrap{padding-bottom:0}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .brand img{height:38px;filter:brightness(0) invert(1)}
+  .brand b{font-size:15px;font-weight:800;letter-spacing:.2px}
+  h1{font-size:30px;line-height:1.25;margin:0 0 8px;font-weight:800;letter-spacing:-.4px}
+  .sub{font-size:14.5px;color:#e9d5ff;margin:0;max-width:62ch}
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .badge{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:26px 28px;margin-top:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  h2{font-size:19px;margin:0 0 6px;font-weight:800;letter-spacing:-.2px;display:flex;align-items:center;gap:10px}
+  h2 .n{width:26px;height:26px;border-radius:8px;background:var(--primary-bg);color:var(--primary);font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  h3{font-size:15px;margin:20px 0 6px;font-weight:700}
+  .lead{color:var(--muted);font-size:13.5px;margin:0 0 4px}
+  ol,ul{padding-left:22px;margin:10px 0}
+  li{margin-bottom:7px;font-size:14px}
+  code{background:var(--primary-bg);color:#5b21b6;padding:2px 6px;border-radius:5px;font-size:12.5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-word}
+  pre{background:#1e1b4b;color:#e2e0f5;padding:14px 16px;border-radius:10px;overflow-x:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre code{background:none;color:inherit;padding:0}
+  .step{margin:16px 0 0;padding:16px 18px;border:1px solid var(--border);border-radius:12px;background:#fdfcff}
+  .step .t{font-weight:800;font-size:14px;margin-bottom:6px;display:flex;gap:8px;align-items:baseline}
+  .step .t i{background:var(--primary);color:#fff;width:20px;height:20px;border-radius:6px;font-style:normal;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .callout{border-radius:11px;padding:13px 16px;margin:14px 0;font-size:13.5px;border:1px solid}
+  .callout.ok{background:var(--ok-bg);border-color:#a7f3d0;color:#065f46}
+  .callout.warn{background:var(--warn-bg);border-color:#fde68a;color:#92400e}
+  .callout b{display:block;margin-bottom:3px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{background:#faf9ff;font-weight:800;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  .do{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin:14px 0}
+  .do .d{border:1px solid var(--border);border-radius:11px;padding:13px 15px;background:#fdfcff}
+  .do .d b{display:block;font-size:13.5px;margin-bottom:3px}
+  .do .d span{font-size:12.5px;color:var(--muted)}
+  .foot{margin-top:34px;text-align:center;font-size:12.5px;color:var(--dim)}
+  a{color:var(--primary-2)}
+  .back{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);padding:8px 14px;border-radius:9px;text-decoration:none;color:var(--text);font-size:13px;font-weight:600;margin-bottom:18px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <img src="assets/img/ota-logo-wide.png" alt="Online Tech Academy" />
+    </div>
+    <h1>Publish this site for free</h1>
+    <p class="sub">Medha Program Management is a plain static website — no build step, no server, no monthly bill. Drag the folder onto a free host and it is live. Then connect one Google Apps Script backend to unlock mail, scoring and uploads.</p>
+    <div class="badge-row">
+      <span class="badge">Free forever</span>
+      <span class="badge">No credit card</span>
+      <span class="badge">About 10 minutes</span>
+      <span class="badge">Two steps: host + backend</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <a class="back" href="index.html">&#8592; Back to the portal</a>
+
+  <!-- ============ QUICK PATH ============ -->
+  <div class="card">
+    <h2><span class="n">&#9889;</span> The quick path — 3 steps, about 10 minutes</h2>
+    <p class="lead">This is the whole thing. If you follow only this page, you are live today.</p>
+
+    <div class="step">
+      <div class="t"><i>1</i> Download and unzip</div>
+      Take the file <code>mpm-site-source.zip</code> and unzip it on your computer.
+      Open the folder that comes out — <b>make sure you can see <code>index.html</code> sitting right there</b>,
+      next to an <code>assets</code> folder. (Not inside another folder.)
+    </div>
+
+    <div class="step">
+      <div class="t"><i>2</i> Drop it on Cloudflare Pages <span style="font-weight:600;font-size:12px;color:var(--primary);">(recommended)</span></div>
+      <ol style="margin:6px 0 0;padding-left:20px;">
+        <li>Open <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> and sign in
+          (a free account is enough — no card).</li>
+        <li>Go to <b>Workers &amp; Pages</b> → <b>Create application</b> → <b>Get started</b> → <b>Drag and drop your files</b>.</li>
+        <li>Type a project name, for example <code>medha-program</code>.</li>
+        <li><b>Drag the whole folder</b> (or the zip) onto the box — the folder must have <code>index.html</code> directly inside it.</li>
+        <li>Press <b>Deploy site</b>.</li>
+        <li>Your address: <code>https://medha-program.pages.dev</code></li>
+      </ol>
+      <p style="margin:10px 0 0;">
+        <span style="color:var(--muted);font-size:13px;">
+          Netlify, Firebase Hosting and GitHub Pages work exactly the same way — the steps are at the bottom of this page.
+        </span>
+      </p>
+    </div>
+    <div class="step">
+      <div class="t"><i>3</i> Connect the backend (only if you want mail and saving)</div>
+      Copy <code>backend/Code.gs</code> from the folder → paste into a new project at
+      <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> →
+      deploy it as a <b>Web app</b> (Execute as <b>Me</b>, Who has access <b>Anyone</b>) →
+      copy the <code>/exec</code> URL → in the portal click <b>…</b>, dial <code>2026</code>,
+      click <b>Connect backend</b>, paste the URL, <b>Save</b>.
+      <br><br>
+      <span style="color:var(--muted);font-size:13px;">One project, and it reaches <b>both</b> of your Sheets — the details are in Part 2.</span>
+    </div>
+
+    <div class="callout ok">
+      <b>Where to go next</b>
+      Part 1 explains every hosting option in detail. Part 2 walks through the backend
+      step by step. Part 3 is a quick map of which page does what.
+    </div>
+
+    <div class="callout ok">
+      <b>Your site is already secured</b>
+      The folder contains a <code>_headers</code> file. Cloudflare Pages and Netlify read it
+      automatically and add a strict Content-Security-Policy, <code>X-Frame-Options</code>,
+      <code>Referrer-Policy</code> and <code>Permissions-Policy</code> to every page — so you
+      do not have to set anything up yourself. The <code>_redirects</code> file next to it makes
+      any address open the portal.
+    </div>
+
+    <div class="callout warn">
+      <b>Updating the site later</b>
+      Keep the folder on your computer. When you change something, go to the project in
+      Cloudflare → <b>Create a new deployment</b> → drag the same folder again → <b>Save and Deploy</b>.
+      The address stays the same. (The portal also fetches its code from the network first,
+      so the new version shows up on the very next reload.)
+    </div>
+  </div>
+
+  <!-- ============ PART 1 ============ -->
+  <div class="card">
+    <h2><span class="n">1</span> Publish the site (free hosting)</h2>
+    <p class="lead">The site folder you received contains <code>index.html</code> plus an <code>assets</code> folder, a <code>backend</code> folder and a <code>docs</code> folder. It is already built — there is nothing to compile.</p>
+
+    <div class="callout warn">
+      <b>Do this one thing carefully</b>
+      The folder you drop must have <code>index.html</code> sitting <em>directly inside it</em>. If you drop a folder that contains a sub-folder called <code>mpm-site</code>, the site will 404. Open the folder first and check that <code>index.html</code> is the first thing you see.
+    </div>
+
+    <h3>Option A — Netlify Drop (fastest, recommended)</h3>
+    <div class="step">
+      <div class="t"><i>1</i> Unzip the download on your computer</div>
+      Open <code>mpm-site-source.zip</code> and extract it. You now have a folder called <code>mpm-site</code> — or <code>mpm-site-source</code>, whichever your unzip tool names it.
+    </div>
+    <div class="step">
+      <div class="t"><i>2</i> Open the drop page</div>
+      Go to <a href="https://app.netlify.com/drop" target="_blank" rel="noopener">app.netlify.com/drop</a>.
+    </div>
+    <div class="step">
+      <div class="t"><i>3</i> Sign in (free)</div>
+      Click <b>Sign up</b> and log in with Google — same account as your Sheets. You need an account, otherwise the site is temporary and gets deleted.
+    </div>
+    <div class="step">
+      <div class="t"><i>4</i> Drag the folder onto the box</div>
+      Drag the whole folder (with <code>index.html</code> directly inside) onto the purple drop area. Wait about ten seconds.
+    </div>
+    <div class="step">
+      <div class="t"><i>5</i> Copy your address</div>
+      You get a link like <code>https://your-name-1234.netlify.app</code>. Open it — the portal appears.
+    </div>
+    <div class="step">
+      <div class="t"><i>6</i> Give it a proper name</div>
+      Click the site name in the Netlify dashboard → <b>Change site name</b> → type something like <code>medha-program</code>. Your address becomes <code>https://medha-program.netlify.app</code>.
+    </div>
+    <div class="callout ok">
+      <b>Updating later</b>
+      Keep the folder on your computer. When something changes, drag the same folder onto the drop zone again — from your Netlify dashboard, the bottom of the site page has the drop zone. The new version replaces the old one and your address stays the same.
+    </div>
+
+    <h3>Option B — Cloudflare Pages (best free speed, unlimited bandwidth)</h3>
+    <ol>
+      <li>Go to <a href="https://dash.cloudflare.com" target="_blank" rel="noopener">dash.cloudflare.com</a> and sign in.</li>
+      <li><b>Workers &amp; Pages</b> → <b>Create</b> → <b>Pages</b> → <b>Upload assets</b>.</li>
+      <li>Name the project <code>medha-program</code>, then drag the same folder (or the zip — Cloudflare accepts it) onto the upload area.</li>
+      <li>Your address: <code>https://medha-program.pages.dev</code>.</li>
+    </ol>
+
+    <h3>Option C — Firebase Hosting (same Google account)</h3>
+    <ol>
+      <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> → <b>Add project</b> (use your existing Google account).</li>
+      <li><b>Hosting</b> → <b>Get started</b> → pick the project.</li>
+      <li>Run <code>firebase login</code> and <code>firebase deploy --only hosting</code> from the folder, or use the Hosting console's manual upload.</li>
+      <li>Your address: <code>https://&lt;project&gt;.web.app</code>.</li>
+    </ol>
+    <p class="lead">Free tier: 10 GB of storage and 10 GB of traffic per month. Plenty for an internal portal. No credit card needed.</p>
+
+    <h3>Option D — GitHub Pages</h3>
+    <ol>
+      <li>Create a repository (public) and upload the folder's contents.</li>
+      <li><b>Settings</b> → <b>Pages</b> → Source: <b>Deploy from a branch</b> → <code>main</code> / <code>root</code> → <b>Save</b>.</li>
+      <li>Your address: <code>https://&lt;you&gt;.github.io/&lt;repo&gt;</code>.</li>
+    </ol>
+    <div class="callout warn">
+      <b>One note on GitHub Pages</b>
+      GitHub's terms say Pages is not meant for sites that mainly handle sensitive transactions such as passwords. MPM's login is only a front-door gate and the real work happens in your own Google account, but Netlify, Cloudflare or Firebase are the safer choice if you want to avoid that grey area.
+    </div>
+  </div>
+
+  <!-- ============ PART 2 ============ -->
+  <div class="card">
+    <h2><span class="n">2</span> Connect the backend (one Apps Script, both sheets)</h2>
+    <p class="lead">Without this step the portal still shows every member, every score and every result card — it is simply read-only. With it, mail sending, attendance marking, score saving, agreement saving, Drive uploads and emailing result cards all switch on.</p>
+
+    <div class="callout ok">
+      <b>You only need ONE Apps Script project</b>
+      Even though your data lives in two separate Google Sheets, a single Apps Script project reaches both of them. The backend opens each one by its spreadsheet ID, so the sheet the script is attached to does not matter. Paste the code once, deploy once, paste one URL into the portal — both sheets work.
+    </div>
+
+    <h3>What each sheet is used for</h3>
+    <table>
+      <thead><tr><th>Spreadsheet</th><th>What it holds</th><th>ID (already built into the code)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Medha Program</b></td>
+          <td>Member lists (<code>Members NCM-P1</code>, <code>Members NCM-P2</code>), the mail log (<code>EmailLog</code>), settings, and the <code>Agreements</code> tab</td>
+          <td><code>1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII</code></td>
+        </tr>
+        <tr>
+          <td><b>NCM Part 1</b></td>
+          <td>The master file and the monthly trackers (October / September / August / July) that hold attendance and scores</td>
+          <td><code>1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="lead">Both IDs are already written into <code>backend/Code.gs</code>, so you do not have to type them anywhere. You can still set them as Script Properties if you would rather be explicit.</p>
+
+    <h3>One more spreadsheet — the NCM PART-2 list</h3>
+    <p>The NCM PART-2 members come from <b>Medha Batch-01 Master</b>
+      (<code>1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</code>). The portal finds the tab and the
+      columns by themselves, so you can reorganise that sheet freely.</p>
+    <div class="callout ok">
+      <b>With the backend connected you do not need to share anything</b>
+      Apps Script reads the spreadsheet with your own account, so it just works. The sharing rule
+      below only matters if you use the portal <em>without</em> the backend.
+    </div>
+    <div class="callout warn">
+      <b>Without the backend, this spreadsheet has to be shared</b>
+      Open it → <b>Share</b> → <b>General access</b> → <b>Anyone with the link</b> →
+      <b>Viewer</b>. Without that, the portal keeps showing the older <code>Members NCM-P2</code> tab
+      and puts a note on the page saying so. Nothing is ever lost — members that exist only in the
+      old tab are kept.
+    </div>
+    <h3>What the portal shows from it</h3>
+    <ul>
+      <li><b>Every tab is read</b> and the rows are combined. The <b>Master File</b> tab gives the
+        profile: name, email, course mail, phone, WhatsApp, address, Facebook, Medha email and
+        transaction id. The other tabs (<code>payment check</code>, <code>Members Serial</code>,
+        <code>Call Data</code>, <code>Task Data</code>, <code>13 Oct Attendance</code> and the rest)
+        add whatever they carry.</li>
+      <li><b>Members</b> → click any row → the drawer shows all of it.</li>
+      <li><b>Payments</b> → Part 1 and Part 2 together, one row each. Every NCM Part 2 member
+        joined by paying <b>9,919 taka</b>, and that is what the row shows.</li>
+    </ul>
+    <p class="lead">To set it in the backend, add a third Script Property:
+      <code>BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</code></p>
+
+    <h3>The exact steps</h3>
+    <div class="step">
+      <div class="t"><i>1</i> Open the backend file</div>
+      In your site folder there is <code>backend/Code.gs</code>. Open it in a text editor and select everything (<b>Ctrl + A</b>) and copy it (<b>Ctrl + C</b>).
+    </div>
+    <div class="step">
+      <div class="t"><i>2</i> Create ONE project</div>
+      Go to <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> → <b>New project</b>. Do <b>not</b> choose "New from spreadsheet" — a standalone project can reach both sheets.
+    </div>
+    <div class="step">
+      <div class="t"><i>3</i> Paste the code</div>
+      Click <code>Code.gs</code> in the editor, select all, paste. Save (<b>Ctrl + S</b>). Rename the project to something like <code>Medha Program Backend</code>.
+    </div>
+    <div class="step">
+      <div class="t"><i>4</i> Check the two IDs</div>
+      <b>Project Settings</b> (gear icon) → <b>Script Properties</b> → add:
+      <pre>SHEET_ID    = 1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII
+NCM_SHEET_ID = 1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE</pre>
+      Also set <b>Time zone</b> to <code>Asia/Dhaka</code>.
+    </div>
+    <div class="step">
+      <div class="t"><i>5</i> Run the one-time setup</div>
+      At the top of the editor choose the function <code>setupProgramSheets</code> from the dropdown → click <b>Run</b>. Approve the permission prompt ("Google hasn't verified this app" → <b>Advanced</b> → <b>Go to (project name)</b> → <b>Allow</b>). It creates the <code>Agreements</code> tab and the Status dropdown, and reports what it did.
+    </div>
+    <div class="step">
+      <div class="t"><i>6</i> Deploy as a web app</div>
+      <b>Deploy</b> → <b>New deployment</b> → gear icon → <b>Web app</b>:
+      <ul>
+        <li><b>Description</b>: <code>Medha Program Management</code></li>
+        <li><b>Execute as</b>: <b>Me</b> (your own account)</li>
+        <li><b>Who has access</b>: <b>Anyone</b> — this is what lets the portal reach it from the browser</li>
+      </ul>
+      Click <b>Deploy</b> and copy the <b>Web app URL</b> (it ends in <code>/exec</code>).
+    </div>
+    <div class="step">
+      <div class="t"><i>7</i> Paste it into the portal</div>
+      In the portal click the <b>…</b> button at the bottom of the left sidebar → enter the combination <code>2026</code> on the dial → click <b>Connect backend</b> → paste the URL → <b>Save</b>.
+    </div>
+
+    <div class="callout ok">
+      <b>Done</b>
+      The sidebar badge changes from <i>Read-only</i> to <i>Backend connected</i>, and the sheet is now the single source of truth: write in the portal and the sheet updates, write in the sheet and the portal updates within 30 seconds.
+    </div>
+    <div class="callout warn">
+      <b>If you ever change the code</b>
+      After editing <code>Code.gs</code> you must create a <b>new deployment version</b> (Deploy → Manage deployments → edit → Version: <b>New version</b>). Editing the code does not change the live URL on its own.
+    </div>
+  </div>
+
+  <!-- ============ PART 3 ============ -->
+  <div class="card">
+    <h2><span class="n">3</span> Where to find things</h2>
+    <table>
+      <thead><tr><th>I want to…</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>Change a member's score</td><td><b>Scores &amp; results</b> → Mark the scores → click the cell and type. Total, Grade and Remarks fill in as you type.</td></tr>
+        <tr><td>Mark attendance</td><td><b>Classes &amp; attendance</b> → every attendance cell is a dropdown (Punctual / Late / Absent).</td></tr>
+        <tr><td>Track who signed the agreement</td><td><b>Agreements</b> → click the Status cell in a row to set Signed / Pending / Declined.</td></tr>
+        <tr><td>Send program mail</td><td><b>Mail portal</b> → <b>Program Mail</b> tab.</td></tr>
+        <tr><td>Make result cards</td><td><b>Scores &amp; results</b> → mark scores → tick the members → <b>Download DOCX</b>. Everything is filled in automatically.</td></tr>
+        <tr><td>Open the payment console</td><td><b>Payments admin</b> — two consoles, each with "Open in this tab" and "New tab".</td></tr>
+        <tr><td>Open the support desk</td><td><b>Support</b> — same two buttons.</td></tr>
+        <tr><td>Change a password or the backend</td><td>The <b>…</b> button at the bottom of the sidebar → dial combination <code>2026</code>.</td></tr>
+        <tr><td>See the sheet playbook</td><td>The same <b>…</b> menu → <b>Help &amp; guides</b> → <b>Sheet playbook</b> — how to do every task straight in the Google Sheet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ PART 4 ============ -->
+  <div class="card">
+    <h2><span class="n">4</span> A few things worth knowing</h2>
+    <ul>
+      <li><b>The sheet is the source of truth.</b> The portal is a fast window onto it. Anything you do in either place shows up in the other.</li>
+      <li><b>Mobile numbers are shown with the leading 0.</b> The sheet stores them as plain numbers (1734806516); the portal displays them correctly (01734806516) everywhere — card, profile, payments, DOCX. The sheet value is never altered.</li>
+      <li><b>Scores you type without the backend stay in your browser</b> as a draft, and you can export them as CSV from the same page to paste into the sheet. Connecting the backend makes them save straight to the tracker.</li>
+      <li><b>Everything is stored in your own accounts.</b> The website is only the front end; the data lives in your Google Sheets and your Google Drive. Nothing is hosted on anyone else's database.</li>
+      <li><b>Reaching the whole team</b> — give them the address and the portal login. The second login is <code>ota</code> / <code>ota2026</code> for read-only staff.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    © 2026 Online Tech Academy · Medha Program Management · this guide also lives in <code>docs/HOSTING.md</code>
+  </div>
+
+</div>
+</body>
+</html>
