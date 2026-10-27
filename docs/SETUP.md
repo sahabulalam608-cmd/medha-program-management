@@ -14,6 +14,18 @@ The site ships with two files that Cloudflare Pages and Netlify read automatical
 Both hosting providers apply them with no extra setup, and both serve the site over HTTPS with a
 valid certificate. The static files are served free and unlimited.
 
+## Which Apps Script address to use
+
+There are two addresses and they are easy to mix up:
+
+| Address | Where it comes from | Use it? |
+|---|---|---|
+| `https://script.google.com/macros/s/<id>/edit` | the script editor | **No** |
+| `https://script.google.com/macros/s/<deployment-id>/exec` | **Deploy → Manage deployments** | **Yes** |
+
+The portal checks the address when you paste it: a wrong one is refused with a clear
+message, and the site never claims to be connected when it is not.
+
 ## The Gmail permission (for the Mail portal Inbox)
 
 The Inbox reads the real Gmail of the account that owns the script. That needs one extra step:

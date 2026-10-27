@@ -260,8 +260,14 @@
         <p class="modal-help">Paste your deployed Apps Script Web App URL to enable Program Mail, Mail badge, schedule and Gmail sync. The site works in <b>read-only</b> mode using Google Sheets CSV until then.</p>
         <label>Apps Script Web App URL</label>
         <input type="url" id="configUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+        <div class="modal-help" id="configHint" style="margin-top:8px;">
+          Where to find it: Apps Script → <b>Deploy</b> → <b>Manage deployments</b> → copy the
+          <b>Web app URL</b> — it must end with <code>/exec</code>.
+        </div>
+        <div id="configStatus" style="margin-top:10px;"></div>
         <div class="modal-actions">
           <button class="btn-ghost" id="configSkip">Read-only mode</button>
+          <button class="btn-ghost" id="configTest">Test connection</button>
           <button class="btn-primary" id="configSave">Save &amp; connect</button>
         </div>
       </div>
