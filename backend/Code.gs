@@ -110,6 +110,13 @@ function handleApi_(action, data) {
     case "getEmailLogs": return getEmailLogs(data.limit || 40);
     case "getEmailQuota": return getEmailQuota();
     case "getMailBadge": return getMailBadge(data.withList === true);
+    case "ping": return {
+      success: true,
+      name: "Medha Program Management API",
+      version: CONFIG.VERSION,
+      account: (function () { try { return Session.getEffectiveUser().getEmail(); } catch (e) { return ""; } })(),
+      at: new Date().getTime()
+    };
     case "markMailSeen": return markMailSeen();
     case "markMailRead": return markMailRead(data.threadId);
     case "setupGmail": return setupGmail();
