@@ -19,7 +19,14 @@ const App = (() => {
   };
 
   const els = {};
-  let state = { view: "overview", data: null, loading: false };
+  let state = {
+    view: "overview",
+    data: null,
+    loading: false,
+    master: null,
+    /* is the Apps Script backend really answering? */
+    backend: { url: "", ok: false, message: "", checked: false },
+  };
 
   /* --- Init --- */
   const init = () => {
@@ -119,7 +126,7 @@ const App = (() => {
     } catch (e) {}
     const isOta = String(username).toLowerCase() === "ota";
     return isOta
-      ? { file: "ota-logo-600.png", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
+      ? { file: "ota-logo-600.png", mark: "ota-mark-128.svg", wide: true,  label: "Online Tech Academy" }
       : { file: "medha-logo-256.png", mark: "medha-logo-256.png", wide: false, label: "Medha" };
   };
 
@@ -226,13 +233,16 @@ const App = (() => {
     if (!els.syncPill) return;
     const on = getSyncPref();
     const backendOn = Api.isBackendConfigured();
+    const backendLive = !!(state.backend && state.backend.ok);
     els.syncPill.classList.toggle("offline", !on);
-    els.syncPill.classList.toggle("ok", on && backendOn);
+    els.syncPill.classList.toggle("ok", on && backendLive);
     els.syncPill.title = !on
       ? "Sheet sync is paused"
-      : (backendOn
-        ? "Sheet: Medha_DB \u00b7 Connected \u2014 click to manage the backend"
-        : "Sheet: Medha_DB \u00b7 Read-only \u2014 click to connect the backend");
+      : (backendLive
+        ? "Sheet: Medha_DB \u00b7 Backend connected"
+        : (backendOn
+          ? "Sheet: Medha_DB \u00b7 Backend not working \u2014 " + ((state.backend && state.backend.message) || "the address did not answer")
+          : "Sheet: Medha_DB \u00b7 Read-only \u2014 connect the backend to enable writes"));
   };
 
   /** The clock in the top bar — always Bangladesh Standard Time (UTC+6) */
@@ -254,6 +264,24 @@ const App = (() => {
     };
     tick();
     setInterval(tick, 1000);
+  };
+
+  /** Is the backend really answering? A stored address is not enough —
+      only a successful call to the backend counts as connected. */
+  const checkBackendHealth = async () => {
+    const url = Api.getBackendUrl();
+    if (!url) {
+      state.backend = { url: "", ok: false, message: "", checked: true };
+      return state.backend;
+    }
+    const shape = Api.checkBackendUrl(url);
+    if (!shape.ok) {
+      state.backend = { url, ok: false, message: shape.message, checked: true };
+      return state.backend;
+    }
+    const r = await Api.pingBackend(url);
+    state.backend = { url, ok: !!r.ok, message: r.ok ? "" : (r.message || ""), checked: true };
+    return state.backend;
   };
 
   /** Opens the "Connect backend" modal — used by the sidebar menu and the mail portal card */
@@ -287,14 +315,62 @@ const App = (() => {
     const close = () => { els.configModal.hidden = true; };
     els.configClose.addEventListener("click", close);
     els.configSkip.addEventListener("click", close);
-    els.configSave.addEventListener("click", () => {
+    /* the status line inside the modal */
+    const configStatus = (kind, text) => {
+      const box = document.getElementById("configStatus");
+      if (!box) return;
+      if (!kind) { box.innerHTML = ""; return; }
+      const bg = kind === "ok" ? "#ecfdf5" : kind === "busy" ? "#f5f3ff" : "#fef2f2";
+      const bc = kind === "ok" ? "#a7f3d0" : kind === "busy" ? "#ddd6fe" : "#fecaca";
+      const fc = kind === "ok" ? "#047857" : kind === "busy" ? "#6d28d9" : "#b91c1c";
+      box.innerHTML = `<div style="background:${bg};border:1px solid ${bc};color:${fc};border-radius:9px;
+        padding:9px 11px;font-size:12.5px;line-height:1.6;">${text}</div>`;
+    };
+
+    /* Test the address before it is saved. A wrong address is the one
+       thing that quietly breaks the whole portal. */
+    const testBackend = async () => {
       const url = (els.configUrl.value || "").trim();
-      if (!url) { toast("Enter a URL or skip", "error"); return; }
+      const shape = Api.checkBackendUrl(url);
+      if (!shape.ok) {
+        configStatus("bad", "<b>That address will not work.</b><br>" + escapeHtml(shape.message));
+        return { ok: false, message: shape.message };
+      }
+      configStatus("busy", "Connecting\u2026");
+      const r = await Api.pingBackend(url);
+      if (r.ok) {
+        configStatus("ok", "<b>Connected.</b>"
+          + (r.account ? " The script runs as " + escapeHtml(r.account) + "." : ""));
+      } else {
+        configStatus("bad", "<b>Could not connect.</b><br>" + escapeHtml(r.message));
+      }
+      return r;
+    };
+
+    els.configTest?.addEventListener("click", testBackend);
+
+    els.configSave.addEventListener("click", async () => {
+      const url = (els.configUrl.value || "").trim();
+      if (!url) { configStatus("bad", "Paste the Web App URL first."); return; }
+      els.configSave.disabled = true;
+      const r = await testBackend();
+      els.configSave.disabled = false;
+      if (!r.ok) return;          /* a broken address is never saved */
       Api.setBackendUrl(url);
+      state.backend = { url, ok: true, message: "" };
       close();
       renderSheetLinks();
-      applySyncPrefToPill();      // the dot turns green the moment it is live
-      toast("Backend connected", "success");
+      applySyncPrefToPill();
+      /* the menu that is still open should show the new state at once */
+      const st = document.getElementById("amSyncStatus");
+      if (st) {
+        st.classList.add("ok");
+        st.classList.remove("bad");
+        const txt = st.querySelector("span");
+        if (txt) txt.textContent = "Backend connected \u2014 writes enabled";
+      }
+      toast("Backend connected \u2014 writes enabled", "success");
+      loadMailBadge();          // the unread badge picks up the real count
       setView(state.view);
     });
     // Workspace "…" menu — password gated
@@ -413,6 +489,7 @@ const App = (() => {
     menu.id = "accountMenu";
     menu.className = "account-menu";
     const backendOn = Api.isBackendConfigured();
+    const backendLive = !!(state.backend && state.backend.ok);
     const syncOn = getSyncPref();
     const filesHidden = isPageHidden("files");
 
@@ -438,9 +515,11 @@ const App = (() => {
             </button>
           </div>
           <p class="am-desc">Live — Google Sheet linked. Writes to <code>Medha_DB</code> tab.</p>
-          <div class="am-status ${backendOn ? "ok" : ""}" id="amSyncStatus">
+          <div class="am-status ${backendLive ? "ok" : (backendOn ? "bad" : "")}" id="amSyncStatus">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="check"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>${backendOn ? "Backend connected — writes enabled" : "Read-only — connect to enable writes"}</span>
+            <span>${backendLive ? "Backend connected — writes enabled"
+                  : (backendOn ? "Backend not working — " + escapeHtml((state.backend && state.backend.message) || "the address did not answer")
+                               : "Read-only — connect to enable writes")}</span>
           </div>
         </div>
 
@@ -3512,11 +3591,17 @@ const App = (() => {
 
       if (!items.length) {
         let note = "";
+        let fixBtn = "";
         if (backend) {
-          if (mailSyncing) {
-            note = "Reading your Gmail inbox…";
+          const live = !!(state.backend && state.backend.ok);
+          if (!live) {
+            const why = (state.backend && state.backend.message) || mailError || "the address did not answer";
+            note = `<b>The backend is not working.</b><br>${escapeHtml(why)}<br><br>
+                    <b>Fix:</b> in Apps Script open <b>Deploy → Manage deployments</b> and copy the
+                    <b>Web app URL</b> (it must end with <code>/exec</code>), then paste it below.`;
+            fixBtn = `<div style="margin-top:10px;"><button class="btn-primary" id="mlpFixBackend">Fix the backend address</button></div>`;
           } else if (mailError) {
-            note = `Gmail could not be read — ${mailError}<br><br>
+            note = `Gmail could not be read — ${escapeHtml(mailError)}<br><br>
                     <b>Fix:</b> open the Apps Script project → run <b>setupGmail()</b> once → allow the
                     Gmail permission → deploy a new version.`;
           } else {
@@ -3524,12 +3609,17 @@ const App = (() => {
           }
         } else {
           note = "These are sample mails. Connect the Apps Script backend to read your real inbox.";
+          fixBtn = `<div style="margin-top:10px;"><button class="btn-primary" id="mlpFixBackend">Connect the backend</button></div>`;
         }
         el.innerHTML = `<div class="empty-state" style="padding:34px;">
           <div class="ico">${ICONS.mail}</div>
           <p>Nothing in ${currentBox}.</p>
           ${note ? `<p style="font-size:12.5px;color:var(--text-muted);line-height:1.7;max-width:520px;">${note}</p>` : ""}
+          ${fixBtn}
         </div>`;
+        document.getElementById("mlpFixBackend")?.addEventListener("click", () => {
+          openBackendConfig();
+        });
         return;
       }
 
@@ -4309,11 +4399,29 @@ const App = (() => {
     });
 
     const syncGmail = async () => {
-      if (!backend) { toast("Connect Apps Script backend to sync from Gmail", "error"); return; }
+      if (!backend) { toast("Connect the Apps Script backend to sync from Gmail", "error"); return; }
+      const live = !!(state.backend && state.backend.ok);
+      if (!live) {
+        const why = (state.backend && state.backend.message) || "the address did not answer";
+        Notify.warn("The backend is not working — " + why, {
+          title: "Sync failed",
+          hint: "Apps Script → Deploy → Manage deployments → copy the Web app URL (ends with /exec), then paste it in Connect backend.",
+          duration: 9000,
+        });
+        openBackendConfig();
+        return;
+      }
       try {
         const r = await Api.syncGmail();
-        toast(r.message || "Gmail sync done", "success");
-      } catch (e) { toast("Sync failed: " + e.message, "error"); }
+        Notify.ok(r.message || "Gmail sync done", { title: "Gmail sync", duration: 4000 });
+        if (state.view === "mail") render("mail", state.data);
+      } catch (e) {
+        Notify.warn("Sync failed — " + ((e && e.message) || "unknown error"), {
+          title: "Gmail sync",
+          hint: "Open Apps Script → Deploy → Manage deployments and make sure the Web app URL is deployed with access set to Anyone.",
+          duration: 9000,
+        });
+      }
     };
     document.getElementById("pmSyncGmail").addEventListener("click", syncGmail);
     document.getElementById("pmSyncGmail2").addEventListener("click", syncGmail);
