@@ -8,7 +8,7 @@
  *    CACHE FIRST, refreshed quietly in the background.
  *  - Google Sheets: always the network, because the data must be live.
  */
-const CACHE = "mpm-v40";
+const CACHE = "mpm-v37";
 const SHELL = [
   "./",
   "./index.html",
@@ -34,7 +34,6 @@ const SHELL = [
   "./assets/img/ota-logo-1000.webp",
   "./assets/img/ota-logo-wide.png",
   "./assets/img/facebook-icon.png",
-  "./assets/img/ota-mark-128.png",
 ];
 
 /* files that are big and rarely change — keep them cached */

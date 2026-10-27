@@ -107,6 +107,9 @@ const App = (() => {
   /** Sidebar: both spreadsheet links (Medha program sheet + NCM Part-1 sheet) */
   /** Which brand belongs to the signed-in person.
       Medha admin -> the Medha logo, Online Tech Academy -> the OTA logo. */
+  /* Where the pictures live. If the hosting folder layout ever changes, the
+     small fallback in index.html finds the real place and tells us here. */
+  const imgBase = () => (window.__MPM_IMG_BASE || "assets/img") + "/";
   const sessionBrand = () => {
     let username = "";
     try {
@@ -115,8 +118,8 @@ const App = (() => {
     } catch (e) {}
     const isOta = String(username).toLowerCase() === "ota";
     return isOta
-      ? { logo: "assets/img/ota-logo-600.png", mark: "assets/img/ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
-      : { logo: "assets/img/medha-logo-256.png", mark: "assets/img/medha-logo-256.png", wide: false, label: "Medha" };
+      ? { file: "ota-logo-600.png", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
+      : { file: "medha-logo-256.png", mark: "medha-logo-256.png", wide: false, label: "Medha" };
   };
 
   /** Show the signed-in user in the workspace footer */
@@ -128,8 +131,9 @@ const App = (() => {
        the Online Tech Academy mark above it always stays the same */
     const brand = sessionBrand();
     const userLogo = document.getElementById("wsUserLogo");
-    if (userLogo && userLogo.getAttribute("src") !== brand.mark) {
-      userLogo.setAttribute("src", brand.mark);
+    const wantMark = imgBase() + brand.mark;
+    if (userLogo && userLogo.getAttribute("src") !== wantMark) {
+      userLogo.setAttribute("src", wantMark);
       userLogo.setAttribute("alt", brand.label);
     }
     try {
@@ -376,7 +380,7 @@ const App = (() => {
 
     menu.innerHTML = `
       <div class="am-head">
-        <img class="am-avatar${sessionBrand().wide ? " wide" : ""}" src="${sessionBrand().logo}"
+        <img class="am-avatar${sessionBrand().wide ? " wide" : ""}" src="${imgBase() + sessionBrand().file}"
              alt="${escapeHtml(sessionBrand().label)}" width="${sessionBrand().wide ? 60 : 32}" height="32" />
         <div style="min-width:0;">
           <div class="am-name">${escapeHtml((session && (session.name || session.username)) || "Guest")}</div>

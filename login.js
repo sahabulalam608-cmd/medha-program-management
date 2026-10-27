@@ -8,9 +8,12 @@ const AUTH_USERS = [
   { username: "ota", password: "ota2026", name: "OTA Team" },
 ];
 const SESSION_KEY = "mpm.session";
+/* The site sign-in can be remembered in this browser. The vault code (2026)
+   is never written anywhere — it is not stored, not cached, never asked for. */
+const REMEMBER_KEY = "mpm.remember";
 
 const Login = (() => {
-  let screen, card, form, btn, userEl, passEl, errEl, eyeBtn, progressEl;
+  let screen, card, form, btn, userEl, passEl, errEl, eyeBtn, progressEl, rememberEl, forgetEl;
 
   const init = () => {
     screen = document.getElementById("loginScreen");
@@ -22,6 +25,8 @@ const Login = (() => {
     errEl = document.getElementById("loginError");
     eyeBtn = document.getElementById("loginEye");
     progressEl = document.querySelector(".lf-progress");
+    rememberEl = document.getElementById("loginRemember");
+    forgetEl = document.getElementById("loginForget");
 
     if (!AUTH_USERS) { grantAccess(null); return; }
 
@@ -32,6 +37,15 @@ const Login = (() => {
     setTimeout(() => { if (!document.body.classList.contains("logged-in")) userEl?.focus(); }, 700);
 
     form?.addEventListener("submit", onSubmit);
+    paintRemembered();
+    forgetEl?.addEventListener("click", () => {
+      writeRemembered(null);
+      if (userEl) userEl.value = "";
+      if (passEl) passEl.value = "";
+      if (rememberEl) rememberEl.checked = true;
+      if (forgetEl) forgetEl.hidden = true;
+      userEl?.focus();
+    });
     eyeBtn?.addEventListener("click", toggleEye);
     passEl?.addEventListener("keydown", (e) => { if (e.key === "Enter") form.requestSubmit(); });
     userEl?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); passEl.focus(); } });
@@ -42,6 +56,30 @@ const Login = (() => {
     passEl.type = show ? "text" : "password";
     eyeBtn.setAttribute("aria-label", show ? "Hide password" : "Show password");
     eyeBtn.style.color = show ? "var(--primary)" : "";
+  };
+
+  /* ---- the remembered site sign-in (never the vault code) ---- */
+  const readRemembered = () => {
+    try {
+      const raw = localStorage.getItem(REMEMBER_KEY);
+      if (!raw) return null;
+      const v = JSON.parse(raw);
+      return v && v.username ? v : null;
+    } catch { return null; }
+  };
+  const writeRemembered = (v) => {
+    try {
+      if (v) localStorage.setItem(REMEMBER_KEY, JSON.stringify(v));
+      else localStorage.removeItem(REMEMBER_KEY);
+    } catch (e) {}
+  };
+  const paintRemembered = () => {
+    const v = readRemembered();
+    if (!v) { if (forgetEl) forgetEl.hidden = true; return; }
+    if (userEl && !userEl.value) userEl.value = v.username;
+    if (passEl && !passEl.value) passEl.value = v.password || "";
+    if (rememberEl) rememberEl.checked = true;
+    if (forgetEl) forgetEl.hidden = false;
   };
 
   const readSession = () => {
@@ -93,6 +131,13 @@ const Login = (() => {
       localStorage.setItem(SESSION_KEY, payload);
     } catch (err) { /* storage blocked — session continues anyway */ }
 
+    /* keep the sign-in details only when the box is ticked */
+    if (rememberEl && rememberEl.checked) {
+      writeRemembered({ username: match.username, password: match.password, at: Date.now() });
+    } else {
+      writeRemembered(null);
+    }
+
     grantAccess({ username: match.username, name: match.name });
   };
 
@@ -131,6 +176,8 @@ const Login = (() => {
     passEl.value = "";
     errEl.classList.remove("show");
     if (progressEl) { progressEl.classList.remove("show"); progressEl.querySelector("span").style.width = "0%"; }
+    /* the saved sign-in details stay put — the box asked us to keep them */
+    paintRemembered();
     setTimeout(() => userEl.focus(), 300);
   };
 

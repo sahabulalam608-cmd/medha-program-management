@@ -21,6 +21,26 @@
   <link rel="stylesheet" href="assets/vault.css" />
 </head>
 <body class="font-loading">
+<!-- If a picture is not where it should be, try the flat folder next to it.
+     Keeps the logos working even if the hosting folder layout changes. -->
+<script>
+(function () {
+  document.addEventListener("error", function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== "IMG") return;
+    var tries = parseInt(t.dataset.tries || "0", 10);
+    if (tries >= 2) return;              /* never loop */
+    t.dataset.tries = tries + 1;
+    var cur = t.getAttribute("src") || "";
+    if (cur.indexOf("/img/") >= 0) {
+      t.setAttribute("src", cur.replace("/img/", "/"));
+      window.__MPM_IMG_BASE = "assets";
+    } else if (cur) {
+      t.setAttribute("src", cur.replace("assets/", "assets/img/"));
+    }
+  }, true);
+})();
+</script>
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">

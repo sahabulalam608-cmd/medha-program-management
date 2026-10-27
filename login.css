@@ -195,6 +195,60 @@
 .lf-eye:hover { color: var(--primary); background: #f1eefe; }
 .lf-eye svg { width: 17px; height: 17px; }
 
+/* ---- keep me signed in ---- */
+.lf-remember {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -2px 0 10px;
+}
+.lf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color .14s ease;
+}
+.lf-check:hover { color: var(--text); }
+.lf-check input {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+}
+.lf-box {
+  width: 17px; height: 17px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1.5px solid #cfc9e8;
+  background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .14s ease, border-color .14s ease;
+}
+.lf-box svg { width: 11px; height: 11px; color: #fff; opacity: 0; transform: scale(.6); transition: opacity .14s ease, transform .14s ease; }
+.lf-check input:checked + .lf-box { background: var(--primary); border-color: var(--primary); }
+.lf-check input:checked + .lf-box svg { opacity: 1; transform: scale(1); }
+.lf-check input:focus-visible + .lf-box { outline: 2px solid var(--primary); outline-offset: 2px; }
+.lf-forget {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+.lf-forget:hover { color: var(--primary-2); }
+.lf-forget[hidden] { display: none; }
+
 .lf-error {
   min-height: 18px;
   font-size: 12.5px;
@@ -341,7 +395,7 @@ body.logged-in .sidebar { transform: none; }
   background: #fff;
 }
 .ws-logo {
-  height: 22px; width: auto;
+  height: 16px; width: auto;
   max-width: 100%;
   border-radius: 4px;
   background: #fff;
@@ -385,6 +439,11 @@ body.logged-in .sidebar { transform: none; }
   box-shadow: 0 3px 10px rgba(124,58,237,.26);
   object-fit: contain;
   background: #fff;
+}
+/* the OTA logo is a wide mark — give it its own room so it stays readable */
+.account-menu .am-avatar.wide {
+  width: 60px; height: 22px; border-radius: 7px;
+  object-fit: contain; object-position: left center;
 }
 .account-menu .am-dot {
   width: 7px; height: 7px; border-radius: 50%;
