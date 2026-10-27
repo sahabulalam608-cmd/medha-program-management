@@ -27,6 +27,7 @@ const App = (() => {
     bindNav();
     bindTopbar();
     bindConfigModal();
+    bindSignOut();
     bindSheetGuide();
     bindKeyboard();
     // Wire any Sheet playbook links to the right URL
@@ -38,6 +39,7 @@ const App = (() => {
     renderSheetLinks();
     renderSignedInUser();
     applySyncPrefToPill();
+    startClock();
     applyHiddenPages();
     Api.clearPendingRemovals();
     /* a link may carry a document list with it — bring it in and clean the
@@ -103,11 +105,33 @@ const App = (() => {
   };
 
   /** Sidebar: both spreadsheet links (Medha program sheet + NCM Part-1 sheet) */
+  /** Which brand belongs to the signed-in person.
+      Medha admin -> the Medha logo, Online Tech Academy -> the OTA logo. */
+  const sessionBrand = () => {
+    let username = "";
+    try {
+      const raw = localStorage.getItem("mpm.session") || sessionStorage.getItem("mpm.session");
+      username = (raw ? (JSON.parse(raw) || {}) : {}).username || "";
+    } catch (e) {}
+    const isOta = String(username).toLowerCase() === "ota";
+    return isOta
+      ? { logo: "assets/img/ota-logo-600.png", mark: "assets/img/ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
+      : { logo: "assets/img/medha-logo-256.png", mark: "assets/img/medha-logo-256.png", wide: false, label: "Medha" };
+  };
+
   /** Show the signed-in user in the workspace footer */
   const renderSignedInUser = () => {
     const sub = document.querySelector(".workspace-foot .ws-sub");
     const nameEl = document.querySelector(".workspace-foot .ws-name");
     if (!sub || !nameEl) return;
+    /* the small logo beside the name follows the account that signed in;
+       the Online Tech Academy mark above it always stays the same */
+    const brand = sessionBrand();
+    const userLogo = document.getElementById("wsUserLogo");
+    if (userLogo && userLogo.getAttribute("src") !== brand.mark) {
+      userLogo.setAttribute("src", brand.mark);
+      userLogo.setAttribute("alt", brand.label);
+    }
     try {
       const raw = localStorage.getItem("mpm.session") || sessionStorage.getItem("mpm.session");
       const s = raw ? JSON.parse(raw) : null;
@@ -150,7 +174,8 @@ const App = (() => {
 
   const bindTopbar = () => {
     els.exportBtn.addEventListener("click", exportCSV);
-    els.syncPill?.addEventListener("click", () => openBackendConfig());
+    /* the dot is a status light only — it never opens a window */
+    els.syncPill?.removeAttribute("tabindex");
   };
 
   /** Reflect the sheet-sync preference in the top-right status pill */
@@ -168,12 +193,52 @@ const App = (() => {
         : "Sheet: Medha_DB \u00b7 Read-only \u2014 click to connect the backend");
   };
 
+  /** The clock in the top bar — always Bangladesh Standard Time (UTC+6) */
+  const startClock = () => {
+    const timeEl = document.getElementById("bdTime");
+    const dateEl = document.getElementById("bdDate");
+    if (!timeEl || !dateEl) return;
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dhaka", hour: "2-digit", minute: "2-digit",
+      second: "2-digit", hour12: true,
+    });
+    const dateFmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Dhaka", day: "numeric", month: "long", year: "numeric",
+    });
+    const tick = () => {
+      const now = new Date();
+      timeEl.textContent = timeFmt.format(now);
+      dateEl.textContent = dateFmt.format(now);
+    };
+    tick();
+    setInterval(tick, 1000);
+  };
+
   /** Opens the "Connect backend" modal — used by the sidebar menu and the mail portal card */
   const openBackendConfig = () => {
     if (!els.configModal) return;
     els.configModal.hidden = false;
     els.configUrl.value = Api.getBackendUrl() || "";
     setTimeout(() => els.configUrl.focus(), 60);
+  };
+
+  /* --- the small sign-out button in the sidebar footer --- */
+  const bindSignOut = () => {
+    const btn = document.getElementById("wsSignOut");
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      const ok = await Modal.confirm({
+        title: "Sign out",
+        message: "Sign out of Medha Program Management?",
+        okText: "Sign out",
+        cancelText: "Stay signed in",
+        danger: true,
+      });
+      if (!ok) return;
+      document.getElementById("accountMenu")?.remove();
+      if (window.Login && typeof window.Login.logout === "function") window.Login.logout();
+      else { location.reload(); }
+    });
   };
 
   const bindConfigModal = () => {
@@ -186,6 +251,7 @@ const App = (() => {
       Api.setBackendUrl(url);
       close();
       renderSheetLinks();
+      applySyncPrefToPill();      // the dot turns green the moment it is live
       toast("Backend connected", "success");
       setView(state.view);
     });
@@ -310,7 +376,8 @@ const App = (() => {
 
     menu.innerHTML = `
       <div class="am-head">
-        <img class="am-avatar" src="assets/img/medha-logo-256.png" alt="Medha" width="32" height="32" />
+        <img class="am-avatar${sessionBrand().wide ? " wide" : ""}" src="${sessionBrand().logo}"
+             alt="${escapeHtml(sessionBrand().label)}" width="${sessionBrand().wide ? 60 : 32}" height="32" />
         <div style="min-width:0;">
           <div class="am-name">${escapeHtml((session && (session.name || session.username)) || "Guest")}</div>
           <div class="am-role">${escapeHtml((session && session.username) || "-")}</div>

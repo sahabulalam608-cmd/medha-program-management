@@ -276,8 +276,67 @@ button:focus-visible {
 .ws-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
+/* the logo and the sign-out button share one line */
+.ws-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+/* the organisation is always Online Tech Academy */
+.ws-brand {
+  flex: 1;
+  min-width: 0;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the small logo beside the signed-in name — it follows the account */
+.ws-user-logo {
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  object-fit: contain;
+  object-position: left center;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.ws-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 25px;
+  padding: 0 6px 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.ws-signout svg { width: 11px; height: 11px; flex-shrink: 0; }
+.ws-signout:hover {
+  background: #fef2f2;
+  color: var(--danger);
+  border-color: #fecaca;
+}
+.ws-signout:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+body:not(.logged-in) .ws-signout { display: none; }
 .ws-meta {
   flex: 1;
   display: flex;
@@ -286,7 +345,7 @@ button:focus-visible {
   min-width: 0;
 }
 .ws-name {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text);
   display: flex;
@@ -314,15 +373,15 @@ button:focus-visible {
   text-overflow: ellipsis;
 }
 .ws-more {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 6px;
   color: var(--text-dim);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.ws-more svg { width: 16px; height: 16px; }
+.ws-more svg { width: 15px; height: 15px; }
 .ws-more:hover { background: var(--bg-2); }
 
 /* === Main === */
@@ -374,17 +433,17 @@ button:focus-visible {
 .nav-item[hidden] { display: none !important; }
 
 .sync-pill {
+  display: inline-block;
   width: 13px;
   height: 13px;
   padding: 0;
   border-radius: 50%;
   border: none;
-  cursor: pointer;
-  background: var(--warning);
+  cursor: default;              /* a status light — it does not open anything */
+  background: var(--warning);   /* yellow = the backend is not connected */
   box-shadow: 0 0 0 3px rgba(245, 158, 11, .18);
-  transition: background .2s ease, box-shadow .2s ease, transform .15s ease;
+  transition: background .2s ease, box-shadow .2s ease;
 }
-.sync-pill:hover { transform: scale(1.18); }
 .sync-pill.ok {
   background: var(--success);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, .18);
@@ -392,6 +451,36 @@ button:focus-visible {
 .sync-pill.offline {
   background: #cbd5e1;
   box-shadow: 0 0 0 3px rgba(148, 163, 184, .16);
+}
+/* the Bangladesh clock — time on top, date right underneath */
+.bd-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding: 4px 11px 5px;
+  border-radius: 10px;
+  background: #faf9ff;
+  border: 1px solid #ece8fd;
+  min-width: 116px;
+  user-select: none;
+}
+.bd-time {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+.bd-date {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 .export-btn {
   background: var(--text);
@@ -1112,6 +1201,9 @@ body { opacity: 1; transition: opacity .12s ease; }
 @media (max-width: 900px) {
   :root { --sidebar-w: 64px; }
   .logo-text, .nav-label, .nav-badge, .nav-ext, .sync-card, .workspace-foot .ws-meta, .crumb-sep, .crumb-cur + span:first-of-type, .ws-more { display: none; }
+  /* on a narrow sidebar the sign-out keeps only its icon */
+  .ws-signout span { display: none; }
+  .ws-signout { padding: 0 7px; }
   .nav-item { justify-content: center; padding: 10px; }
   .sidebar-head { padding: 16px 12px; }
   .sidebar-foot { padding: 10px 8px 14px; }
