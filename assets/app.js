@@ -75,6 +75,7 @@ const App = (() => {
         /* the Batch-01 Master list replaces the P2 list in the background —
            repaint so the new members show up without a reload */
         else if (state.view === "members") render("members", fresh);
+        else if (state.view === "payments") render("payments", fresh);
       });
     });
     // Reveal as soon as fonts are ready (or immediately on fallback)
@@ -120,6 +121,43 @@ const App = (() => {
     return isOta
       ? { file: "ota-logo-600.png", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
       : { file: "medha-logo-256.png", mark: "medha-logo-256.png", wide: false, label: "Medha" };
+  };
+
+  /* Where the member list comes from. This lives in the "…" menu, not on
+     the Members page, so the page stays clean. */
+  const memberDataNoteHtml = () => {
+    const d = state.data || {};
+    if (d._p2FromBatch01) {
+      return `<div class="am-note ok">
+        <span class="sn-ico">&#10003;</span>
+        <span>NCM PART-2 is loaded from <b>${escapeHtml(d._p2Source || "the Master sheet")}</b> in the Medha Batch-01 Master sheet.</span>
+      </div>`;
+    }
+    if (d._p2Pending) {
+      return `<div class="am-note">
+        <span class="sn-ico">&#8230;</span>
+        <span>Reading the Medha Batch-01 Master sheet&hellip;</span>
+      </div>`;
+    }
+    return `<div class="am-note warn">
+      <span class="sn-ico">!</span>
+      <div>
+        <b>NCM PART-2 is showing the older <code>Members NCM-P2</code> tab.</b>
+        The browser could not open the Medha Batch-01 Master sheet — Google is hiding it from anyone who is not signed in.
+        <div class="sn-actions">
+          <button class="btn-primary sn-btn" id="snConnectBackend">Connect the backend</button>
+          <a class="btn-ghost sn-btn" target="_blank" rel="noopener"
+             href="https://docs.google.com/spreadsheets/d/${Api.BATCH01_SHEET_ID}/edit">Open the sheet &rarr; share it</a>
+        </div>
+        <span class="sn-hint">
+          <b>Connect the backend</b> is the better fix — Apps Script reads the sheet with your own Google
+          account, so it works without any sharing. <b>Or</b> open the sheet and set
+          <b>Share &rarr; General access &rarr; Anyone with the link &rarr; Viewer</b>, then press
+          <b>Refresh</b> on the Members page.
+        </span>
+        ${d._p2Note ? `<span class="sn-hint" style="opacity:.7;">(${escapeHtml(d._p2Note)})</span>` : ""}
+      </div>
+    </div>`;
   };
 
   /** Show the signed-in user in the workspace footer */
@@ -424,6 +462,11 @@ const App = (() => {
       </div>
 
       <div class="am-group">
+        <div class="am-group-title">Member data</div>
+        ${memberDataNoteHtml()}
+      </div>
+
+      <div class="am-group">
         <div class="am-group-title">Help &amp; guides</div>
         <button class="am-item" id="amSheetPlaybook">
           ${ICONS.sheet}
@@ -541,6 +584,11 @@ const App = (() => {
         row?.remove();
         paintFileList();
       });
+    });
+
+    menu.querySelector("#snConnectBackend")?.addEventListener("click", () => {
+      menu.remove();
+      openBackendConfig();
     });
 
     menu.querySelector("#amToggleFiles").addEventListener("click", () => {
@@ -862,32 +910,6 @@ const App = (() => {
         <button class="tab-pill" data-tab="NCM PART-2">NCM PART-2 (${data["NCM PART-2"].length})</button>
       </div>
 
-      ${data._p2FromBatch01 ? `
-        <div class="src-note">
-          <span class="sn-ico">&#10003;</span>
-          <span>NCM PART-2 is loaded from <b>${escapeHtml(data._p2Source)}</b> in the Medha Batch-01 Master sheet.</span>
-        </div>` : data._p2Pending ? "" : `
-        <div class="src-note warn">
-          <span class="sn-ico">!</span>
-          <div>
-            <b>NCM PART-2 is showing the older <code>Members NCM-P2</code> tab.</b>
-            The browser could not open the Medha Batch-01 Master sheet — Google is hiding it from anyone who is not signed in.
-            Pick one of these:
-            <div class="sn-actions">
-              <button class="btn-primary sn-btn" id="snConnectBackend">Connect the backend</button>
-              <a class="btn-ghost sn-btn" target="_blank" rel="noopener"
-                 href="https://docs.google.com/spreadsheets/d/${Api.BATCH01_SHEET_ID}/edit">Open the sheet &rarr; share it</a>
-            </div>
-            <span class="sn-hint">
-              <b>Connect the backend</b> is the better fix — Apps Script reads the sheet with your own Google
-              account, so it works without any sharing. <b>Or</b> open the sheet and set
-              <b>Share &rarr; General access &rarr; Anyone with the link &rarr; Viewer</b>, then press
-              <b>Refresh</b>.
-            </span>
-            ${data._p2Note ? `<span class="sn-hint" style="opacity:.7;">(${escapeHtml(data._p2Note)})</span>` : ""}
-          </div>
-        </div>`}
-
       <div class="toolbar">
         <input type="search" id="memSearch" placeholder="Search name, email, ID, phone, team" />
         <select id="memFilter">
@@ -964,7 +986,7 @@ const App = (() => {
           <td class="email-cell">${escapeHtml(m.email)}</td>
           <td><span class="chip"><span class="chip-dot" style="background:${isP1 ? "#2563eb" : "#f59e0b"};"></span>${isP1 ? "Part 1" : "Part 2"}</span></td>
           <td>${statusChip(m.status)}</td>
-          <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(m.sentAt || "—")}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${m.sentAt ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
           <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(prof.plan || m.plan || "—")}</td>
           <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(prof.team || m.team || "—")}</td>
           <td>${payChip(paid, pstat)}</td>
@@ -1097,7 +1119,7 @@ const App = (() => {
         ${info("Page link", prof.pageLink, prof.pageLink)}
         ${info("Transaction ID", m.tranId)}
         ${info("Mail status", m.status || "Not set")}
-        ${info("Last sent", m.sentAt || "—")}`,
+        ${info("Last sent", m.sentAt ? stamp(m.sentAt) : "Not sent yet")}`,
       payment: () => `
         ${info("Amount", (prof.amount || m.amount) ? "৳" + (prof.amount || m.amount) : "—")}
         ${info("Payment status", prof.paymentStatus || m.paymentStatus)}
@@ -1407,8 +1429,12 @@ const App = (() => {
     state.tracker = rows;
 
     // join the NCM Master File so the result card has email / mobile / facebook
-    const master = state.master && state.master.length ? state.master : await Api.getNcmMaster();
-    state.master = master;
+    let master = state.master && state.master.length ? state.master : (Api.getNcmMasterCached?.() || []);
+    if (!master.length) {
+      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+    } else {
+      state.master = master;
+    }
     const byId = {};
     master.forEach(m => { byId[m.memberId] = m; });
     rows.forEach(r => {
@@ -1974,7 +2000,12 @@ const App = (() => {
       <div class="loading"><span class="spinner"></span>Loading payments\u2026</div>
     `;
     if (!master.length) {
-      state.master = await Api.getNcmMaster();
+      /* No waiting: the page is painted right away and the Part 1 rows
+         arrive a moment later, when the master file has been read. */
+      Api.getNcmMaster().then(m => {
+        state.master = m;
+        if (state.view === "payments") render("payments", state.data);
+      }).catch(() => {});
     }
     /* NCM Part 1 comes from the Master File, NCM Part 2 from the Batch-01
        Master sheet. Every NCM Part 2 member joined the programme by paying
@@ -3119,8 +3150,12 @@ const App = (() => {
     state.tracker = rows;
 
     // join the NCM Master File so the result card has email / mobile / facebook
-    const master = state.master && state.master.length ? state.master : await Api.getNcmMaster();
-    state.master = master;
+    let master = state.master && state.master.length ? state.master : (Api.getNcmMasterCached?.() || []);
+    if (!master.length) {
+      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+    } else {
+      state.master = master;
+    }
     const byId = {};
     master.forEach(m => { byId[m.memberId] = m; });
     rows.forEach(r => {
@@ -3328,12 +3363,15 @@ const App = (() => {
     const showInbox = () => {
       /* the user has signed in and opened the inbox → the mails are now read,
          so mark them before the inbox is painted */
-      markMailIdsSeen(SAMPLE_MAIL.map((m, i) => i).filter(i => SAMPLE_MAIL[i].unread));
-      SAMPLE_MAIL.forEach(m => { m.unread = false; });
-      clearMailBadge();
+      if (!Api.isBackendConfigured()) {
+        markMailIdsSeen(SAMPLE_MAIL.map((m, i) => i).filter(i => SAMPLE_MAIL[i].unread));
+        SAMPLE_MAIL.forEach(m => { m.unread = false; });
+        clearMailBadge();
+      }
       body.innerHTML = inboxWorkspaceHtml();
       wireInbox(data);
-      Api.markMailSeen().then(() => loadMailBadge()).catch(() => {});
+      /* the unread count stays until the mails are actually opened */
+      loadMailBadge();
     };
     const showProgMail = () => { body.innerHTML = progMailHtml(); wireProgMail(data); };
 
@@ -3377,6 +3415,7 @@ const App = (() => {
               <span class="msn-ico">${ICONS.send}</span>
               <span class="msn-label">Sent</span>
             </button>
+            <button class="msn msn-sync" id="mpSyncGmail" title="Read the inbox again from Gmail">↻ Sync from Gmail</button>
             <button class="msn" data-box="Archive">
               <span class="msn-ico">${ICONS.archive}</span>
               <span class="msn-label">Archive</span>
@@ -3410,25 +3449,38 @@ const App = (() => {
     let currentSearch = "";
     /* real inbox mails from the backend (Gmail); falls back to the samples */
     let liveMails = null;
+    let mailError = "";
+    let mailSyncing = false;
 
-    const mailList = () => (liveMails && liveMails.length ? liveMails : SAMPLE_MAIL);
+    /* With a backend we show the real Gmail inbox. The sample mails are only
+       for the demo (no backend) — they must never pretend to be real. */
+    const mailList = () => (backend ? (liveMails || []) : SAMPLE_MAIL);
     const unreadCount = () => mailList().filter(m => m.unread).length;
 
     /* pull the real inbox once the portal opens */
-    if (backend) {
-      Api.getMailBadge().then(r => {
-        if (!r || !Array.isArray(r.items) || !r.items.length) return;
-        liveMails = r.items.map((m, i) => ({
+    const loadLiveMails = async () => {
+      if (!backend) { paint(); return; }
+      mailSyncing = true;
+      try {
+        const r = await Api.getMailBadge();
+        mailError = (r && r.message) || "";
+        liveMails = (r && Array.isArray(r.items)) ? r.items.map((m) => ({
           from: m.from || "Unknown sender",
           tag: "inbox",
           subject: m.subject || "(no subject)",
-          preview: m.date ? "Received " + m.date : "",
-          time: m.date || "",
-          unread: true,
-        }));
-        paint();
-      }).catch(() => {});
-    }
+          preview: m.snippet || "",
+          time: m.date ? stamp(m.date) : "",
+          unread: !!m.unread,
+          threadId: m.threadId || "",
+        })) : [];
+      } catch (e) {
+        liveMails = [];
+        mailError = String((e && e.message) || e);
+      }
+      mailSyncing = false;
+      paint();
+    };
+    if (backend) loadLiveMails();
 
     const paint = () => {
       const q = currentSearch.toLowerCase();
@@ -3459,9 +3511,24 @@ const App = (() => {
       document.getElementById("mlpCount").textContent = currentBox === "Inbox" ? "• " + unread + " new" : "• " + items.length;
 
       if (!items.length) {
+        let note = "";
+        if (backend) {
+          if (mailSyncing) {
+            note = "Reading your Gmail inbox…";
+          } else if (mailError) {
+            note = `Gmail could not be read — ${mailError}<br><br>
+                    <b>Fix:</b> open the Apps Script project → run <b>setupGmail()</b> once → allow the
+                    Gmail permission → deploy a new version.`;
+          } else {
+            note = "Your Gmail inbox is empty.";
+          }
+        } else {
+          note = "These are sample mails. Connect the Apps Script backend to read your real inbox.";
+        }
         el.innerHTML = `<div class="empty-state" style="padding:34px;">
           <div class="ico">${ICONS.mail}</div>
           <p>Nothing in ${currentBox}.</p>
+          ${note ? `<p style="font-size:12.5px;color:var(--text-muted);line-height:1.7;max-width:520px;">${note}</p>` : ""}
         </div>`;
         return;
       }
@@ -3505,8 +3572,30 @@ const App = (() => {
       if (!item) return;
       const idx = Array.from(item.parentElement.children).indexOf(item);
       const list = mailList();
-      if (list[idx]) list[idx].unread = false;
+      const m = list[idx];
+      if (m) {
+        m.unread = false;
+        /* tell Gmail too, so the badge is right on every device */
+        if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
+        loadMailBadge();
+      }
       paint();
+    });
+
+    document.getElementById("mpSyncGmail")?.addEventListener("click", async () => {
+      if (!backend) { toast("Connect the Apps Script backend to read Gmail", "error"); return; }
+      await loadLiveMails();
+      const r = await Api.getMailBadge().catch(() => null);
+      if (r) loadMailBadge();
+      if (mailError) {
+        Notify.warn("Gmail could not be read — " + mailError, {
+          title: "Gmail sync",
+          hint: "Run setupGmail() once in the Apps Script project, then deploy a new version.",
+          duration: 8000,
+        });
+      } else {
+        Notify.ok("Inbox updated from Gmail", { title: "Gmail sync", duration: 4000 });
+      }
     });
 
     document.getElementById("openCompose")?.addEventListener("click", () => {
@@ -4023,6 +4112,16 @@ const App = (() => {
           <h4>Last sent</h4>
           <div id="pmLastSent"><div class="pm-status-line">No mail sent yet from this program.</div></div>
         </div>
+
+        <!-- LIVE PREVIEW — updates the moment you type the subject or the body -->
+        <div class="pm-live-preview" id="pmLivePreview">
+          <div class="pm-lp-head">
+            <span class="pm-lp-subject">Subject: <b id="pmLpSubject">—</b></span>
+            <span class="pm-lp-lang" id="pmLpLang">Sending as English</span>
+          </div>
+          <div class="pm-lp-hint">Colors / fonts below = what goes in the email (this language only)</div>
+          <div class="pm-lp-body" id="pmLpBody"></div>
+        </div>
       </div>
 
       <!-- TABLE TOOLBAR -->
@@ -4083,7 +4182,7 @@ const App = (() => {
         <span class="tick">✓</span>
         <div>
           <div>Sent · ${escapeHtml(program)} · ${sentList.length} people</div>
-          <div class="sub">${escapeHtml(latest.sentAt)} · Latest delivery</div>
+          <div class="sub">${escapeHtml(stamp(latest.sentAt))} · Latest delivery</div>
         </div>
       </div>`;
     };
@@ -4111,7 +4210,8 @@ const App = (() => {
       });
 
       body.innerHTML = rows.map((m, i) => {
-        const dec = decision[m.memberId] || (m.status.toLowerCase() === "sent" ? "Sent" : "Not Decided");
+        const sheetStatus = String(m.status || "").toLowerCase();
+        const dec = decision[m.memberId] || (sheetStatus === "sent" ? "Sent" : "Not Decided");
         const isToSend = dec === "To Send";
         return `<tr class="${isToSend ? "to-send" : ""}">
           <td style="color:var(--text-muted);font-weight:600;">${i + 1}</td>
@@ -4119,15 +4219,18 @@ const App = (() => {
           <td class="name-cell">${escapeHtml(m.name)}</td>
           <td class="email-cell">${escapeHtml(m.email)}</td>
           <td>
-            <select class="pm-decision" data-id="${escapeHtml(m.memberId)}">
-              <option value="Not Decided" ${dec === "Not Decided" ? "selected" : ""}>Not Decided</option>
-              <option value="To Send" ${isToSend ? "selected" : ""}>To Send</option>
-              <option value="Sent" ${dec === "Sent" ? "selected" : ""}>Sent</option>
-              <option value="Skip" ${dec === "Skip" ? "selected" : ""}>Skip</option>
-              <option value="Hold" ${dec === "Hold" ? "selected" : ""}>Hold</option>
-            </select>
+            <div class="pm-dec-cell">
+              <span class="pm-dec-chip pm-dec-${escapeHtml(dec.toLowerCase().replace(/\s+/g, "-"))}">${escapeHtml(dec)}</span>
+              <select class="pm-decision" data-id="${escapeHtml(m.memberId)}" aria-label="Decision for ${escapeHtml(m.memberId)}">
+                <option value="Not Decided" ${dec === "Not Decided" ? "selected" : ""}>Not Decided</option>
+                <option value="To Send" ${isToSend ? "selected" : ""}>To Send</option>
+                <option value="Sent" ${dec === "Sent" ? "selected" : ""}>Sent</option>
+                <option value="Skip" ${dec === "Skip" ? "selected" : ""}>Skip</option>
+                <option value="Hold" ${dec === "Hold" ? "selected" : ""}>Hold</option>
+              </select>
+            </div>
           </td>
-          <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(m.sentAt || "—")}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${m.sentAt ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
         </tr>`;
       }).join("") || `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:26px;">No members match your filters</td></tr>`;
 
@@ -4274,6 +4377,36 @@ const App = (() => {
     });
 
     // preview
+    /* ---- live preview: what the member will actually receive ---- */
+    const paintMailPreview = () => {
+      const bodyBox = document.getElementById("pmLpBody");
+      if (!bodyBox) return;
+      const lang = document.getElementById("pmSendLang")?.value || "en";
+      const subject = (document.getElementById("pmSubject")?.value || "").trim();
+      const editor = document.getElementById(lang === "bn" ? "pmBodyBn" : "pmBodyEn");
+      const html = (editor && editor.innerHTML || "").trim();
+
+      const sEl = document.getElementById("pmLpSubject");
+      if (sEl) sEl.textContent = subject || "—";
+      const lEl = document.getElementById("pmLpLang");
+      if (lEl) lEl.textContent = "Sending as " + (lang === "bn" ? "Bangla" : "English");
+      bodyBox.innerHTML = html
+        ? html
+        : `<div class="pm-lp-empty">Type the mail body and the preview will appear here, exactly as the member will see it.</div>`;
+    };
+    const livePreviewInputs = ["pmSubject", "pmSendLang"];
+    livePreviewInputs.forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", paintMailPreview);
+      document.getElementById(id)?.addEventListener("change", paintMailPreview);
+    });
+    ["pmBodyBn", "pmBodyEn"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input", paintMailPreview);
+      el.addEventListener("blur", paintMailPreview);
+    });
+    paintMailPreview();
+
     document.getElementById("pmPreview").addEventListener("click", () => {
       const lang = document.getElementById("pmSendLang").value;
       const html = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML;
@@ -4304,6 +4437,7 @@ const App = (() => {
         document.getElementById("pmSubject").value = d.subject || "";
         document.getElementById("pmBodyBn").innerHTML = d.bn || "";
         document.getElementById("pmBodyEn").innerHTML = d.en || "";
+        if (typeof paintMailPreview === "function") paintMailPreview();
         toast("Draft loaded", "success");
       } catch (e) { toast("No draft found", "error"); }
     });
@@ -4378,7 +4512,12 @@ const App = (() => {
     }
     document.getElementById("pmWatcher").textContent = new Date().toLocaleString("en-GB");
 
-    loadProgram("");
+    /* start on the first program that actually has members, so the table
+       is never empty when the page opens */
+    const firstWithMembers = ["NCM PART-1", "NCM PART-2"].find((p) => (data[p] || []).length);
+    const sel = document.getElementById("pmProgram");
+    if (sel && firstWithMembers) sel.value = firstWithMembers;
+    loadProgram(sel && sel.value ? sel.value : "");
   };
 
   const renderComingSoon = (title, head) => {
@@ -4507,6 +4646,24 @@ const App = (() => {
     const t = parseDate(s);
     if (!t) return s || "";
     return new Date(t).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+
+  /* One format everywhere: 27 Oct 2026, 02:14:11 PM
+     (day · month · year, with the seconds) */
+  const stamp = (s) => {
+    if (!s) return "";
+    const t = parseDate(s);
+    if (!t) return String(s);
+    const d = new Date(t);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mo = d.toLocaleDateString("en-GB", { month: "short" });
+    const yy = d.getFullYear();
+    let hh = d.getHours();
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    const ap = hh >= 12 ? "PM" : "AM";
+    hh = hh % 12; if (hh === 0) hh = 12;
+    return `${dd} ${mo} ${yy}, ${String(hh).padStart(2, "0")}:${mm}:${ss} ${ap}`;
   };
 
   const shortDate = (s) => {

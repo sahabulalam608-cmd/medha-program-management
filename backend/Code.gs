@@ -20,7 +20,7 @@ const SHEET_ID = PropertiesService.getScriptProperties().getProperty("SHEET_ID")
 
 /* Third spreadsheet — Medha Batch-01 Master (the NCM PART-2 member list) */
 const BATCH01_SHEET_ID = PropertiesService.getScriptProperties().getProperty("BATCH01_SHEET_ID")
-  || "1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw";
+  || "1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw";
 
 /* Second spreadsheet — NCM Part 1 (master file + monthly trackers) */
 const NCM_SHEET_ID = PropertiesService.getScriptProperties().getProperty("NCM_SHEET_ID")
@@ -111,6 +111,8 @@ function handleApi_(action, data) {
     case "getEmailQuota": return getEmailQuota();
     case "getMailBadge": return getMailBadge(data.withList === true);
     case "markMailSeen": return markMailSeen();
+    case "markMailRead": return markMailRead(data.threadId);
+    case "setupGmail": return setupGmail();
     case "markMailUnseen": return markMailUnseen();
     case "fetchLogMailBody": return fetchLogMailBody(data.subject || "", data.recipient || "");
     case "getFormStatus": return getFormStatus(data.form || data.formType || "application");
@@ -205,7 +207,7 @@ var B01_COLS_ = {
   facebook: { p: ["facebook", "facebookprofile", "fb", "fblink", "fbprofile"] },
   medhaEmail: { p: ["medhaemail", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail"] },
   courseMail: { p: ["coursemail", "coursemailaddress"] },
-  tranId: { p: ["tranid", "transactionid", "trxid", "trid", "paymentid"] },
+  tranId: { p: ["tranid", "transid", "transactionid", "trxid", "trid", "paymentid"] },
   plan:   { p: ["plan", "package"] },
   team:   { p: ["team", "teamcategory", "category", "group"] },
   payStatus: { p: ["paymentstatus", "paymentstate"] },
@@ -341,6 +343,17 @@ function batch01Members_() {
 
   var collected = [];
   var sheets = ss.getSheets();
+  /* The "Master File" tab holds the full list (name, email, phone, WhatsApp,
+     address, course mail, Facebook, Medha e-mail, transaction id). Read it
+     first so its values are the ones that end up in the member record. */
+  var ordered = [];
+  for (var mi = 0; mi < sheets.length; mi++) {
+    if (/^master file$/i.test(String(sheets[mi].getName() || "").trim())) ordered.push(sheets[mi]);
+  }
+  for (var si = 0; si < sheets.length; si++) {
+    if (ordered.indexOf(sheets[si]) === -1) ordered.push(sheets[si]);
+  }
+  sheets = ordered;
   for (var j = 0; j < sheets.length; j++) {
     var rows = parseMemberSheet_(sheets[j]);
     if (rows && rows.length) {
@@ -648,35 +661,67 @@ function getEmailLogs(limit) {
 
 /* ========== Mail badge ========== */
 
+/**
+ * The real Gmail inbox of the account that owns this script.
+ * Returns every inbox mail (read and unread) plus the unread count.
+ * If Gmail is not authorised yet the reason comes back in `message`
+ * so the portal can tell the truth instead of showing made-up mails.
+ */
 function getMailBadge(withList) {
+  var unread = 0, items = [], error = "";
   try {
-    var unread = 0;
-    try { unread = GmailApp.getInboxUnreadCount(); } catch (e1) { unread = 0; }
-    var items = [];
-    if (withList && unread > 0) {
+    try { unread = GmailApp.getInboxUnreadCount(); }
+    catch (e1) { error = String((e1 && e1.message) || e1); }
+
+    if (withList) {
       try {
-        var startIdx = 0, chunk = 50, maxTotal = 100;
-        while (items.length < unread && items.length < maxTotal) {
-          var threads = GmailApp.search("is:unread in:inbox", startIdx, chunk);
-          if (!threads || !threads.length) break;
-          for (var i = 0; i < threads.length; i++) {
-            var t = threads[i];
-            var msg = t.getMessages()[t.getMessageCount() - 1];
-            var from = "", subj = "", d = "";
-            try { from = msg.getFrom(); } catch (e2) {}
-            try { subj = msg.getSubject(); } catch (e3) {}
-            try { d = Utilities.formatDate(msg.getDate(), Session.getScriptTimeZone(), "dd-MM HH:mm"); } catch (e4) {}
-            items.push({ from: from, subject: subj, date: d, threadId: t.getId() });
-            if (items.length >= maxTotal) break;
-          }
-          if (threads.length < chunk) break;
-          startIdx += chunk;
+        var threads = GmailApp.search("in:inbox", 0, 50);
+        for (var i = 0; i < threads.length; i++) {
+          var t = threads[i];
+          var msgs = t.getMessages();
+          var msg = msgs[msgs.length - 1];
+          var from = "", subj = "", d = "", snip = "", un = false;
+          try { from = msg.getFrom(); } catch (e2) {}
+          try { subj = msg.getSubject(); } catch (e3) {}
+          try { snip = msg.getSnippet(); } catch (e3b) {}
+          try { un = msg.isUnread(); } catch (e3c) {}
+          try { d = Utilities.formatDate(msg.getDate(), Session.getScriptTimeZone(), "dd-MM-yyyy HH:mm:ss"); } catch (e4) {}
+          items.push({
+            from: from, subject: subj, date: d, snippet: snip,
+            unread: un, threadId: t.getId()
+          });
         }
-      } catch (eList) {}
+      } catch (eL) {
+        if (!error) error = String((eL && eL.message) || eL);
+      }
     }
-    return { success: true, unread: unread, items: items };
   } catch (e) {
-    return { success: false, unread: 0, items: [], message: String(e) };
+    error = String((e && e.message) || e);
+  }
+  return { success: !error, unread: unread, items: items, message: error };
+}
+
+/** Mark one thread as read (the portal calls this when a mail is opened) */
+function markMailRead(threadId) {
+  try {
+    var t = GmailApp.getThreadById(threadId);
+    if (!t) return { success: false, message: "Thread not found" };
+    t.markRead();
+    return { success: true, threadId: threadId };
+  } catch (e) {
+    return { success: false, message: String((e && e.message) || e) };
+  }
+}
+
+/** Run this once so Apps Script asks for permission to read Gmail.
+    (Without it the inbox cannot be read at all.) */
+function setupGmail() {
+  try {
+    var n = GmailApp.getInboxUnreadCount();
+    var threads = GmailApp.search("in:inbox", 0, 3);
+    return { success: true, message: "Gmail is ready — " + n + " unread, " + threads.length + " recent thread(s) checked." };
+  } catch (e) {
+    return { success: false, message: String((e && e.message) || e) };
   }
 }
 

@@ -608,6 +608,34 @@ body.logged-in .sidebar { transform: none; }
   background: #fef2f2; color: var(--danger); border-color: #fecaca;
   transform: scale(1.08);
 }
+/* the member-data note inside the "…" menu */
+.am-note {
+  display: flex;
+  gap: 8px;
+  margin: 0 4px 2px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: #f8f7ff;
+  border: 1px solid #ece9fd;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.am-note .sn-ico { flex-shrink: 0; font-weight: 800; color: var(--primary); }
+.am-note b { color: var(--text); }
+.am-note code {
+  font-size: 10.5px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+.am-note.warn { background: #fff8e1; border-color: #fde68a; }
+.am-note.warn .sn-ico { color: #b45309; }
+.am-note .sn-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 6px; }
+.am-note .sn-btn { font-size: 11px; padding: 5px 9px; }
+.am-note .sn-hint { display: block; margin-top: 4px; font-size: 10.5px; opacity: .85; }
+
 .am-empty {
   padding: 9px 10px;
   font-size: 11.5px;

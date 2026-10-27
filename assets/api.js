@@ -72,7 +72,14 @@ const Api = (() => {
     const TIMEOUT = opts.timeout || 6000;
     const RETRIES = opts.retries === undefined ? 1 : opts.retries;
     const cbName = "__mpm_jsonp_" + Math.random().toString(36).slice(2, 10);
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(tab)}&tqx=out:json;responseHandler:${cbName}&cb=${Date.now()}`;
+    /* A tab id (gid) is used instead of a name whenever we have one:
+       a wrong tab name makes Google return the FIRST tab of the sheet,
+       which is how the wrong member list used to be loaded. */
+    const tabKey = String(tab || "").trim();
+    const sheetParam = /^\d+$/.test(tabKey)
+      ? `gid=${encodeURIComponent(tabKey)}`
+      : `sheet=${encodeURIComponent(tabKey)}`;
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${sheetParam}&tqx=out:json;responseHandler:${cbName}&cb=${Date.now()}`;
     const script = document.createElement("script");
     script.src = url;
     let settled = false;
@@ -206,14 +213,20 @@ const Api = (() => {
      inside that spreadsheet is discovered automatically and the columns are read
      by their headers, so the layout does not have to be guessed.
   */
-  const BATCH01_SHEET_ID = "1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw";
+  const BATCH01_SHEET_ID = "1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw";
+  /* The tabs of the Medha Batch-01 Master sheet, by their tab id.
+     The ids are used because a tab name that does not exist makes Google
+     quietly return the FIRST tab ("payment check") instead.
+     "Master File" comes first — it is the one that holds the full list. */
   const BATCH01_TABS = [
-    "Medha Batch-01 Master",
-    "Medha Batch-01 Master Sheet",
-    "Medha Batch-01",
-    "Members NCM-P2",
-    "Batch-01 Master",
-    "",                       // first tab of the spreadsheet
+    { gid: "738811071", name: "Master File" },
+    { gid: "2071651608", name: "Members Serial" },
+    { gid: "0", name: "payment check" },
+    { gid: "851131585", name: "Call Data" },
+    { gid: "1421796387", name: "Task Data" },
+    { gid: "179477977", name: "13 Oct Attendance" },
+    { gid: "1882812613", name: "13th Oct Task Data" },
+    { gid: "682914187", name: "21st Oct Task Data" },
   ];
 
   const normLabel = (s) => String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -255,7 +268,7 @@ const Api = (() => {
     facebook: { priority: ["facebook", "facebookprofile", "fb", "fblink", "fbprofile"] },
     medhaEmail: { priority: ["medhaemail", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail"] },
     courseMail: { priority: ["coursemail", "coursemailaddress"] },
-    tranId: { priority: ["tranid", "transactionid", "trxid", "trid", "paymentid"] },
+    tranId: { priority: ["tranid", "transid", "transactionid", "trxid", "trid", "paymentid"] },
     plan:  { priority: ["plan", "package"] },
     team:  { priority: ["team", "teamcategory", "category", "group"] },
     payStatus: { priority: ["paymentstatus", "paymentstate"] },
@@ -344,24 +357,32 @@ const Api = (() => {
    * read them from the published HTML view. If that is not available we fall
    * back to the well-known names.
    */
+  /* Every tab of a sheet, with its id and name. The id is what we read. */
   const discoverTabs = async (sheetId) => {
     try {
       const res = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`, { mode: "cors" });
       if (!res.ok) return [];
       const html = await res.text();
-      const names = [];
-      const push = (nm) => {
+      const out = [];
+      const seen = {};
+      const push = (nm, gid) => {
+        gid = String(gid || "").trim();
         nm = String(nm || "").trim();
-        if (nm && names.indexOf(nm) === -1 && nm.length < 60) names.push(nm);
+        if (!gid || seen[gid] || nm.length > 60) return;
+        seen[gid] = 1;
+        out.push({ gid, name: nm });
       };
-      /* <a href="#gid=0" ...>Tab name</a> */
+      /* the sheet menu carries both: name: "…", gid: "…" */
       let m;
-      const re1 = /href="#gid=\d+"[^>]*>([^<]{1,60})</g;
-      while ((m = re1.exec(html))) push(m[1]);
+      const re1 = /name:\s*"([^"]{1,60})"[^{}]{0,400}?gid:\s*"(\d+)"/g;
+      while ((m = re1.exec(html))) push(m[1], m[2]);
+      /* <a href="#gid=0" ...>Tab name</a> */
+      const re2 = /href="#gid=(\d+)"[^>]*>([^<]{1,60})</g;
+      while ((m = re2.exec(html))) push(m[2], m[1]);
       /* <a ... gid="0" ...>Tab name</a> */
-      const re2 = /gid="\d+"[^>]*>([^<]{1,60})</g;
-      while ((m = re2.exec(html))) push(m[1]);
-      return names;
+      const re3 = /gid="(\d+)"[^>]*>([^<]{1,60})</g;
+      while ((m = re3.exec(html))) push(m[2], m[1]);
+      return out;
     } catch (e) { return []; }
   };
 
@@ -400,19 +421,19 @@ const Api = (() => {
     const hit = cache.get(key);
     if (hit && Date.now() - hit.t < CACHE_TTL) return hit.v;
 
-    /* try the well-known tab names first, then whatever the sheet actually has */
-    let names = BATCH01_TABS.slice();
+    /* the known tabs first (Master File leads), then anything new */
+    let tabs = BATCH01_TABS.slice();
     const discovered = await discoverTabs(BATCH01_SHEET_ID);
-    if (discovered.length) {
-      names = names.concat(discovered.filter(n => names.indexOf(n) === -1));
+    for (const d of discovered) {
+      if (!tabs.some(t => t.gid === d.gid)) tabs.push(d);
     }
 
     const collected = [];
     const seenTabs = [];
-    for (const tab of names) {
+    for (const tab of tabs) {
       let data;
       try {
-        data = await readGviz(BATCH01_SHEET_ID, tab, 0, { timeout: 2500, retries: 0 });
+        data = await readGviz(BATCH01_SHEET_ID, tab.gid, 0, { timeout: 2500, retries: 0 });
       } catch (e) {
         /* the spreadsheet itself is not reachable (not shared / wrong id) —
            every tab will fail the same way, so stop here */
@@ -421,9 +442,9 @@ const Api = (() => {
         cache.set(key, { v: out, t: Date.now() });
         return out;
       }
-      const rows = parseMembersByHeader(data, tab || "Batch-01 Master");
+      const rows = parseMembersByHeader(data, tab.name || "Batch-01 Master");
       if (!rows) continue;            // this tab is not a member list
-      seenTabs.push(tab || "first tab");
+      seenTabs.push(tab.name || tab.gid);
       collected.push(...rows);
     }
 
@@ -563,8 +584,14 @@ const Api = (() => {
   const backgroundRefresh = () => {
     if (backgroundRefresh._running) return;
     backgroundRefresh._running = true;
-    fetchAllMembers().then(fresh => {
+    const work = getBackendUrl()
+      ? backendCall("getAllMembers")
+          .then(r => (r && r.success) ? r.data : fetchAllMembers())
+          .catch(() => fetchAllMembers())
+      : fetchAllMembers();
+    work.then(fresh => {
       backgroundRefresh._running = false;
+      try { writeLocalCache(fresh); } catch (e) {}
       try { if (typeof Api._freshCb === "function") Api._freshCb(fresh); } catch (e) {}
     }).catch(() => { backgroundRefresh._running = false; });
   };
@@ -624,6 +651,28 @@ const Api = (() => {
     } catch (e) { /* quota — ignore */ }
   };
 
+  /* The NCM master list is needed by Payments, Members and the profile
+     drawer. It is kept in this browser as well, so a tab opens instantly
+     instead of waiting for the network. */
+  const MASTER_KEY = "mpm.cache.master";
+  const MASTER_TTL = 6 * 60 * 60 * 1000;   /* 6 hours — the sheet rarely changes */
+
+  const readMasterCache = () => {
+    try {
+      const raw = localStorage.getItem(MASTER_KEY);
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      if (!p || !p.at || !Array.isArray(p.data)) return null;
+      if (Date.now() - p.at > MASTER_TTL) return null;
+      return p.data;
+    } catch { return null; }
+  };
+  const writeMasterCache = (data) => {
+    try {
+      localStorage.setItem(MASTER_KEY, JSON.stringify({ at: Date.now(), data }));
+    } catch (e) { /* quota — ignore */ }
+  };
+
   /* --- Public API --- */
   return {
     SHEET_ID,
@@ -652,6 +701,15 @@ const Api = (() => {
     getMembers: async (force = false) => {
       if (force) { cache.clear(); try { localStorage.removeItem(LS_KEY); } catch (e) {} }
 
+      /* Whatever this browser already has is shown straight away — the page
+         must never wait for the network. The refresh happens behind it. */
+      const cached = readLocalCache();
+      if (cached) {
+        backgroundRefresh();      // refresh in background — UI already painted
+        return cached;
+      }
+
+      /* Cold start: one wait for the sheet, then it is cached for next time */
       const backend = getBackendUrl();
       if (backend) {
         try {
@@ -659,14 +717,6 @@ const Api = (() => {
           if (r && r.success) { writeLocalCache(r.data); return r.data; }
         } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
       }
-
-      const cached = readLocalCache();
-      if (cached) {
-        backgroundRefresh();      // refresh in background — UI already painted
-        return cached;
-      }
-
-      // Cold start: wait for the sheet once (max ~3s), then cache for next time
       return fetchAllMembers();
     },
 
@@ -676,10 +726,22 @@ const Api = (() => {
     /* ---------- NCM Part-1 sheet (separate spreadsheet) ---------- */
 
     /** NCM Master File — enriched member records (phone, plan, team, payment, fees) */
+    /** The stored copy — available instantly, no network */
+    getNcmMasterCached: () => readMasterCache(),
+
     getNcmMaster: async () => {
       const key = "ncm:master";
       const hit = cache.get(key);
       if (hit && Date.now() - hit.t < CACHE_TTL) return hit.v;
+      /* the browser already has it — hand it over at once, then refresh */
+      const stored = readMasterCache();
+      if (stored && stored.length) {
+        Api.getNcmMaster().then(fresh => {
+          cache.set(key, { t: Date.now(), v: fresh });
+          writeMasterCache(fresh);
+        }).catch(() => {});
+        return stored;
+      }
       try {
         const rows = gvizRows(await readGviz(NCM_SHEET_ID, NCM_TABS.master));
         const out = rows.map((r, i) => ({
@@ -708,6 +770,7 @@ const Api = (() => {
           octSF: String(r[22] ?? "").trim(),
         })).filter(m => m.memberId);
         cache.set(key, { v: out, t: Date.now() });
+        writeMasterCache(out);
         return out;
       } catch (e) {
         console.warn("NCM master fetch failed:", e.message);
@@ -1164,6 +1227,13 @@ const Api = (() => {
         const r = await backendCall("getMailBadge", { withList: true });
         return r || { unread: 0, items: [] };
       } catch { return { unread: 0, items: [] }; }
+    },
+
+    /** Mark one inbox mail as read (the user opened it) */
+    markMailRead: async (threadId) => {
+      if (!getBackendUrl() || !threadId) return { success: false };
+      try { return await backendCall("markMailRead", { threadId }); }
+      catch { return { success: false }; }
     },
 
     /** Mark every inbox mail as read (called when the user opens the inbox) */

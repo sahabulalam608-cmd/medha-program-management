@@ -28,7 +28,19 @@ A static website that reads and writes the program's Google Sheets.
 |---|---|
 | Medha Program | `1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII` |
 | NCM Part 1 | `1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE` |
-| Medha Batch-01 Master | `1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw` |
+| Medha Batch-01 Master | `1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw` |
+
+## Uploading this folder to GitHub
+
+1. Unzip `medha-program-management.zip` — you get a folder with the files inside it.
+2. Open the repository on GitHub → **Add file** → **Upload files**.
+3. Drag the **contents of that folder** (the files *and* the `assets`, `backend`,
+   `docs` folders) into the upload box. `index.html` has to end up directly in the
+   repository root, and `assets/img/` has to stay a folder inside `assets`.
+4. Write a commit message such as `Update the site` → **Commit changes**.
+
+Cloudflare Pages redeploys by itself — the address stays the same.
+Nothing here needs to be changed; upload it exactly as it is.
 
 ## Publishing to Cloudflare Pages
 

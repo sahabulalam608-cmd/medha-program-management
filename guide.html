@@ -247,7 +247,7 @@
 
     <h3>One more spreadsheet — the NCM PART-2 list</h3>
     <p>The NCM PART-2 members come from <b>Medha Batch-01 Master</b>
-      (<code>1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</code>). The portal finds the tab and the
+      (<code>1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw</code>). The portal finds the tab and the
       columns by themselves, so you can reorganise that sheet freely.</p>
     <div class="callout ok">
       <b>With the backend connected you do not need to share anything</b>
@@ -273,7 +273,7 @@
         joined by paying <b>9,919 taka</b>, and that is what the row shows.</li>
     </ul>
     <p class="lead">To set it in the backend, add a third Script Property:
-      <code>BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</code></p>
+      <code>BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw</code></p>
 
     <h3>The exact steps</h3>
     <div class="step">
@@ -295,7 +295,7 @@
       <b>Script Properties</b> is optional &mdash; the IDs are already inside the code. If you add them, add all three and paste them rather than typing:
       <pre>SHEET_ID        = 1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII
 NCM_SHEET_ID     = 1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE
-BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</pre>
+BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw</pre>
       If you are not sure a value is typed exactly right, delete that property &mdash; the code then uses the ID it already carries.
     </div>
     <div class="step">
@@ -315,6 +315,18 @@ BATCH01_SHEET_ID = 1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw</pre>
     <div class="step">
       <div class="t"><i>7</i> Paste it into the portal</div>
       In the portal click the <b>…</b> button at the bottom of the left sidebar → enter the combination <code>2026</code> on the dial → click <b>Connect backend</b> → paste the URL → <b>Save</b>.
+    </div>
+    <div class="step">
+      <div class="t"><i>8</i> Give the script permission to read Gmail</div>
+      The Mail portal's Inbox reads the real Gmail of the account that owns the script
+      (<code>otanextchaptermastermind@gmail.com</code>). For that the script needs the Gmail permission:
+      <ul>
+        <li><b>Project Settings</b> (gear) → tick <b>Show &ldquo;appsscript.json&rdquo; manifest file in editor</b> → open the file → replace it with the <code>backend/appsscript.json</code> from this folder → save.</li>
+        <li>Back in the editor choose the function <code>setupGmail</code> from the dropdown → <b>Run</b>.</li>
+        <li>Approve the Gmail permission (<b>Advanced</b> → <b>Go to (project name)</b> → <b>Allow</b>).</li>
+        <li><b>Deploy → Manage deployments →</b> edit the web app → <b>Version: New version</b> → <b>Deploy</b>. The URL does not change.</li>
+      </ul>
+      After this the Inbox shows your real mails, the unread count is real, and a mail turns read only when you open it.
     </div>
 
     <div class="callout ok">

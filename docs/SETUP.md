@@ -14,6 +14,17 @@ The site ships with two files that Cloudflare Pages and Netlify read automatical
 Both hosting providers apply them with no extra setup, and both serve the site over HTTPS with a
 valid certificate. The static files are served free and unlimited.
 
+## The Gmail permission (for the Mail portal Inbox)
+
+The Inbox reads the real Gmail of the account that owns the script. That needs one extra step:
+
+1. **Project Settings** (gear) → tick **Show "appsscript.json" manifest file in editor** → open it
+2. Replace its content with `backend/appsscript.json` from this folder (it lists the Gmail, Sheets and Drive scopes) → save
+3. In the editor pick the function **`setupGmail`** → **Run** → approve the Gmail permission
+4. **Deploy → Manage deployments →** edit → **Version: New version** → **Deploy** (the URL stays the same)
+
+Without this the Inbox cannot read Gmail and the portal says so plainly instead of showing made-up mails.
+
 ## What's in the box
 
 ```
@@ -207,7 +218,7 @@ The portal reads from **two** Google Sheets. Both links are pinned in the sideba
 
 > ### Where NCM PART-2 comes from
 > The NCM PART-2 member list is read from the **Medha Batch-01 Master** spreadsheet
-> (`1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw`) — it is also listed on the **Files** page.
+> (`1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw`) — it is also listed on the **Files** page.
 > Every tab of that spreadsheet is read and the rows are combined: the **Master File** tab
 > supplies the profile details (name, email, course mail, phone, WhatsApp, address, Facebook,
 > Medha email, transaction id); the other tabs (`payment check`, `Members Serial`, `Call Data`,
@@ -291,7 +302,7 @@ Deploy `backend/Code.gs` to Apps Script once, then paste the Web App URL into th
 3. **Project Settings** (⚙️ icon) → **Script Properties** → **Add** (both):
    - Property: `SHEET_ID` · Value: `1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII`
    - Property: `NCM_SHEET_ID` · Value: `1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE`
-   - Property: `BATCH01_SHEET_ID` · Value: `1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw`
+   - Property: `BATCH01_SHEET_ID` · Value: `1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw`
 4. **Project Settings** → **Time zone** → `Asia/Dhaka`
 5. Save. In the editor, run **`setupProgramSheets`** from the dropdown — first run will ask for permissions, click **Review permissions → Allow**.
 6. **Deploy** → **New deployment**:

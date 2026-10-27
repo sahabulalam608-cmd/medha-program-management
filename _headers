@@ -10,10 +10,9 @@
   # style-src   : the portal's own styles + inline styles + Google Fonts
   # frame-src   : the two payment consoles and the support desk
   # connect-src : Google Sheets (read) + the Apps Script backend (write)
-  #              + script.googleusercontent.com (GAS POST redirect target)
   # img-src     : inline images, the media the portal draws, and blobs
   #              (used for the result-card preview and the DOCX download)
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://docs.google.com https://script.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://script.google.com https://script.googleusercontent.com https://*.googleapis.com; frame-src 'self' https://otanextchapter.online https://pay.onlinetechacademy.club https://app.medha.pro; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://docs.google.com https://script.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://script.google.com https://*.googleapis.com; frame-src 'self' https://otanextchapter.online https://pay.onlinetechacademy.club https://app.medha.pro; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
 
   # --- Basics -----------------------------------------------------
   X-Content-Type-Options: nosniff

@@ -139,7 +139,7 @@ saving, Drive uploads and emailing result cards all switch on.
 | **NCM Part 1** | Master file + monthly trackers (October / September / August / July) with attendance and scores | `1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE` |
 
 There is a third spreadsheet too — **Medha Batch-01 Master**
-(`1PZ4Ccbec-Qm5m_s4mya_X24Ykd9HGgw0Mcmfpf9zZw`) — which holds the **NCM PART-2** member list.
+(`1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw`) — which holds the **NCM PART-2** member list.
 It is listed on the portal's **Files** page.
 
 - **With the backend connected** the portal reads it through Apps Script, using your own Google
