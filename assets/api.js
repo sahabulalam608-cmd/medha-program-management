@@ -683,6 +683,58 @@ const Api = (() => {
     TRACKER_COLS,
     TRACKER_GROUPS,
     getBackendUrl,
+
+    /* ---- is this really a Web App address? ----
+       A script EDIT address looks the same but returns a web page, not the
+       API — that is the mistake that silently breaks everything. */
+    checkBackendUrl: (url) => {
+      const raw = String(url || "").trim();
+      if (!raw) return { ok: false, reason: "empty", message: "Paste the Web App URL first." };
+      if (!/^https?:\/\//i.test(raw)) {
+        return { ok: false, reason: "format", message: "The address must start with https://" };
+      }
+      if (/\/edit(?:\?|#|$)/i.test(raw) || /\/home(?:\?|#|$)/i.test(raw)) {
+        return {
+          ok: false, reason: "edit-url",
+          message: "This is the script EDIT address, not the Web App address. "
+                 + "In Apps Script open Deploy → Manage deployments → copy the address that ends with /exec.",
+        };
+      }
+      if (!/\/exec(?:\?|#|$)/i.test(raw)) {
+        return {
+          ok: false, reason: "not-exec",
+          message: "A Web App address always ends with /exec. Open Apps Script → Deploy → "
+                 + "Manage deployments and copy the address that ends with /exec.",
+        };
+      }
+      return { ok: true, reason: "", message: "" };
+    },
+
+    /** Talk to the backend and see whether it really answers */
+    pingBackend: async (url) => {
+      const target = String(url || "").trim();
+      const shape = Api.checkBackendUrl(target);
+      if (!shape.ok) return { ok: false, message: shape.message };
+      try {
+        const res = await fetch(target, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "ping" }),
+        });
+        if (!res.ok) return { ok: false, message: "The server answered with HTTP " + res.status + "." };
+        const data = await res.json();
+        if (data && data.success) {
+          return { ok: true, message: "Connected.", account: data.account || "", version: data.version || "" };
+        }
+        return { ok: false, message: (data && data.message) || "The backend did not confirm the connection." };
+      } catch (e) {
+        return {
+          ok: false,
+          message: "Could not reach the backend (" + (e && e.message ? e.message : "network error")
+                 + "). Check the address, and that the deployment is set to Anyone.",
+        };
+      }
+    },
     getConfig: () => getConfig(),
     setConfig: (cfg) => setConfig(cfg),
     setBackendUrl: (url) => {
