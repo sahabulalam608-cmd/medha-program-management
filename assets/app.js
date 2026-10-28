@@ -575,7 +575,7 @@ const App = (() => {
           <div class="am-empty">Loading…</div>
         </div>
         <div class="am-sub-title">Documents</div>
-        <div class="am-file-hint" id="amFileHint">Tap the red &times; to remove &middot; Undo for 10 s</div>
+        <div class="am-file-hint" id="amFileHint">Delete only here (not on the Files page) &middot; Undo 10 s</div>
         <div class="am-file-list" id="amFileList">
           <div class="am-empty">Loading…</div>
         </div>
@@ -627,14 +627,47 @@ const App = (() => {
     /* the spreadsheets from the Files page */
     const sheetBox = menu.querySelector("#amSheetList");
     if (sheetBox) {
-      const sheets = Api.sheetLinks();
-      sheetBox.innerHTML = sheets.map(l => `
-        <a class="am-file-row am-sheet-row" href="${escapeHtml(l.url)}" target="_blank" rel="noopener"
-           title="${escapeHtml(l.sub || l.label)}">
-          <span class="am-file-ico">&#128202;</span>
-          <span class="am-file-name">${escapeHtml(l.label)}</span>
-          <span class="am-file-go">&#8599;</span>
-        </a>`).join("");
+      const paintSheets = () => {
+        const sheets = Api.sheetLinks();
+        if (!sheets.length) {
+          sheetBox.innerHTML = `<div class="am-empty">All sheet links hidden. Refresh or clear mpm.sheets.hidden to restore.</div>`;
+          return;
+        }
+        sheetBox.innerHTML = sheets.map(l => `
+          <div class="am-file-row am-sheet-row" data-sheet-id="${escapeHtml(l.id || "")}">
+            <a class="am-file-name" href="${escapeHtml(l.url)}" target="_blank" rel="noopener"
+               title="${escapeHtml(l.sub || l.label)}" style="flex:1;text-decoration:none;color:inherit;display:flex;align-items:center;gap:8px;min-width:0;">
+              <span class="am-file-ico">&#128202;</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(l.label)}</span>
+            </a>
+            <button class="am-file-x" type="button" data-hide-sheet="${escapeHtml(l.id || "")}"
+                    title="Remove this sheet link from the list">Delete</button>
+          </div>`).join("");
+      };
+      paintSheets();
+      sheetBox.onclick = (e) => {
+        const btn = e.target.closest("[data-hide-sheet]");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.getAttribute("data-hide-sheet");
+        if (!id) return;
+        Api.hideSheetLink(id);
+        paintSheets();
+        Notify.ok("Sheet link removed", {
+          title: "Removed from list",
+          hint: "It no longer shows on Files or in this menu. Undo within 10 seconds.",
+          duration: 10000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              Api.unhideSheetLink(id);
+              paintSheets();
+              Notify.ok("Sheet link restored");
+            },
+          },
+        });
+      };
     }
 
     const fileBox = menu.querySelector("#amFileList");
@@ -645,7 +678,7 @@ const App = (() => {
       const hint = menu.querySelector("#amFileHint");
       if (hint) hint.hidden = !files.length;
       if (!files.length) {
-        fileBox.innerHTML = `<div class="am-empty">No documents yet \u2014 add them from the Files page.</div>`;
+        fileBox.innerHTML = `<div class="am-empty">No documents yet.<br>Add from the <b>Files</b> page, then delete them here with <b>Delete</b>.</div>`;
         return;
       }
       fileBox.innerHTML = files.map(f => `
@@ -653,7 +686,7 @@ const App = (() => {
           <span class="am-file-ico">${f.kind === "link" ? "\u{1F517}" : "\u{1F4C4}"}</span>
           <span class="am-file-name" title="${escapeHtml(f.url || f.name)}">${escapeHtml(f.name)}</span>
           <button class="am-file-x" type="button" data-remove-file="${escapeHtml(f.id)}"
-                  title="Remove from Files" aria-label="Remove ${escapeHtml(f.name)}">\u00d7</button>
+                  title="Delete this document" aria-label="Delete ${escapeHtml(f.name)}">Delete</button>
         </div>`).join("");
     };
     paintFileList();
@@ -3035,9 +3068,9 @@ const App = (() => {
             <div class="file-empty">
               <span class="fe-ico">&#128193;</span>
               <b>No documents yet</b>
-              <p>Upload a file or add a link to a Google Doc / Drive file. Every document gets
-                <b>Open</b>, <b>Rename</b> and a red <b>Remove</b> button on the right — press Remove
-                and you have 10 seconds to undo it.</p>
+              <p>Upload a file or add a link to a Google Doc / Drive file.
+                Each document has <b>Open</b> and <b>Rename</b> here.
+                To <b>remove</b> a document, use the <b>⋮</b> menu (password 2026).</p>
               <div class="fe-demo">
                 <span class="fc-ico link">${ICONS.link}</span>
                 <span class="fc-body">
@@ -3047,7 +3080,6 @@ const App = (() => {
                 <span class="fc-actions">
                   <a class="fc-btn" tabindex="-1" aria-hidden="true">${ICONS.external}</a>
                   <button class="fc-btn" tabindex="-1" aria-hidden="true">${ICONS.edit}</button>
-                  <button class="fc-remove" tabindex="-1" aria-hidden="true">${ICONS.trash}<span>Remove</span></button>
                 </span>
               </div>
             </div>`}
@@ -3539,14 +3571,17 @@ const App = (() => {
     els.content.innerHTML = `
       ${head("Mail portal", VIEWS.mail.bn)}
 
-      <div class="mail-tabs" id="mailTabs" role="tablist">
+            <div class="mail-tabs" id="mailTabs" role="tablist">
         <button class="mail-tab active" data-mtab="inbox" role="tab">
           <span class="mt-ico">${ICONS.inbox}</span> Inbox
         </button>
         <button class="mail-tab" data-mtab="progmail" role="tab">
           <span class="mt-ico">${ICONS.send}</span> Program Mail
         </button>
-        <span class="mail-tabs-note">Both live inside the portal — no new tab needed.</span>
+        <button class="mail-tab" data-mtab="files" role="tab">
+          <span class="mt-ico">${ICONS.folder}</span> Files
+        </button>
+        <span class="mail-tabs-note">Inbox · Program Mail · Files — all inside the portal.</span>
       </div>
 
       <div id="mailTabBody"></div>
@@ -3568,12 +3603,32 @@ const App = (() => {
     };
     const showProgMail = () => { body.innerHTML = progMailHtml(); wireProgMail(data); };
 
+    const showFilesTab = () => {
+      /* reuse the main Files page inside the mail workspace */
+      body.innerHTML = `<div id="mailFilesMount"></div>`;
+      const mount = document.getElementById("mailFilesMount");
+      const prev = els.content;
+      /* temporarily paint Files into the tab body */
+      const fakeHead = (title, sub) => `
+        <div class="page-head" style="margin-bottom:12px;">
+          <div>
+            <div class="page-kicker">Mail portal · Files</div>
+            <h1 class="page-title" style="font-size:1.35rem;">${title}</h1>
+            <p class="page-sub">${sub || ""}</p>
+          </div>
+        </div>`;
+      const holder = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {} };
+      /* simplest path: navigate to files view */
+      setView("files");
+    };
+
     document.getElementById("mailTabs").addEventListener("click", (e) => {
       const btn = e.target.closest(".mail-tab");
       if (!btn) return;
       document.querySelectorAll(".mail-tab").forEach(x => x.classList.remove("active"));
       btn.classList.add("active");
       if (btn.dataset.mtab === "progmail") showProgMail();
+      else if (btn.dataset.mtab === "files") showFilesTab();
       else showInbox();
     });
 
@@ -3650,30 +3705,55 @@ const App = (() => {
     const mailList = () => (backend ? (liveMails || []) : SAMPLE_MAIL);
     const unreadCount = () => mailList().filter(m => m.unread).length;
 
-    /* pull the real inbox once the portal opens */
-    const loadLiveMails = async () => {
+    /* Instant inbox: show cached list first, refresh in background */
+    const MAIL_CACHE_KEY = "mpm.mail.inbox.v1";
+    const mapMailItems = (items) => (items || []).map((m) => ({
+      from: m.from || "Unknown sender",
+      tag: "inbox",
+      subject: m.subject || "(no subject)",
+      preview: m.snippet || m.preview || m.body || "",
+      body: m.body || "",
+      time: m.date ? stamp(m.date) : (m.time || ""),
+      unread: !!m.unread,
+      threadId: m.threadId || "",
+    }));
+    const readMailCache = () => {
+      try {
+        const j = JSON.parse(localStorage.getItem(MAIL_CACHE_KEY) || "null");
+        if (j && Array.isArray(j.items)) return j.items;
+      } catch (e) {}
+      return null;
+    };
+    const writeMailCache = (items) => {
+      try { localStorage.setItem(MAIL_CACHE_KEY, JSON.stringify({ at: Date.now(), items: items || [] })); }
+      catch (e) {}
+    };
+
+    const loadLiveMails = async (opts) => {
+      opts = opts || {};
       if (!backend) { paint(); return; }
+      if (!opts.skipCache) {
+        const cached = readMailCache();
+        if (cached && cached.length) {
+          liveMails = cached;
+          paint();
+        }
+      }
       mailSyncing = true;
       try {
         const r = await Api.getMailBadge();
         mailError = (r && r.message) || "";
-        liveMails = (r && Array.isArray(r.items)) ? r.items.map((m) => ({
-          from: m.from || "Unknown sender",
-          tag: "inbox",
-          subject: m.subject || "(no subject)",
-          preview: m.snippet || "",
-          time: m.date ? stamp(m.date) : "",
-          unread: !!m.unread,
-          threadId: m.threadId || "",
-        })) : [];
+        liveMails = mapMailItems(r && r.items);
+        writeMailCache(liveMails);
       } catch (e) {
-        liveMails = [];
+        if (!liveMails) liveMails = [];
         mailError = String((e && e.message) || e);
       }
       mailSyncing = false;
       paint();
     };
     if (backend) loadLiveMails();
+    else paint();
 
     const paint = () => {
       const q = currentSearch.toLowerCase();

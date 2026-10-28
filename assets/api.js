@@ -884,26 +884,64 @@ const Api = (() => {
     },
 
     /** Both spreadsheet links (shown in the sidebar) */
-    sheetLinks: () => ([
+        sheetLinks: () => {
+      const all = [
+        {
+          id: "medha-program",
+          label: "Medha Program sheet",
+          sub: "Members NCM-P1 / P2 · EmailLog · Settings",
+          url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
+        },
+        {
+          id: "ncm-part1",
+          label: "NCM Part 1 sheet",
+          sub: "Master File · Monthly trackers",
+          url: `https://docs.google.com/spreadsheets/d/${NCM_SHEET_ID}/edit`,
+        },
+        {
+          id: "batch01-master",
+          label: "Medha Batch-01 Master sheet",
+          sub: "NCM PART-2 members · Master File",
+          url: `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/edit`,
+        },
+      ];
+      let hidden = [];
+      try { hidden = JSON.parse(localStorage.getItem("mpm.sheets.hidden") || "[]") || []; } catch (e) {}
+      return all.filter((x) => !hidden.includes(x.id));
+    },
+    allSheetLinks: () => ([
       {
-        key: "medha",
+        id: "medha-program",
         label: "Medha Program sheet",
         sub: "Members NCM-P1 / P2 · EmailLog · Settings",
         url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
       },
       {
-        key: "ncm",
+        id: "ncm-part1",
         label: "NCM Part 1 sheet",
         sub: "Master File · Monthly trackers",
         url: `https://docs.google.com/spreadsheets/d/${NCM_SHEET_ID}/edit`,
       },
       {
-        key: "batch01",
+        id: "batch01-master",
         label: "Medha Batch-01 Master sheet",
         sub: "NCM PART-2 members · Master File",
         url: `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/edit`,
       },
     ]),
+    hideSheetLink: (id) => {
+      let hidden = [];
+      try { hidden = JSON.parse(localStorage.getItem("mpm.sheets.hidden") || "[]") || []; } catch (e) {}
+      if (!hidden.includes(id)) hidden.push(id);
+      localStorage.setItem("mpm.sheets.hidden", JSON.stringify(hidden));
+    },
+    unhideSheetLink: (id) => {
+      let hidden = [];
+      try { hidden = JSON.parse(localStorage.getItem("mpm.sheets.hidden") || "[]") || []; } catch (e) {}
+      hidden = hidden.filter((x) => x !== id);
+      localStorage.setItem("mpm.sheets.hidden", JSON.stringify(hidden));
+    },
+
 
     /* ---------- Medha Support (app.medha.pro) ---------- */
     SUPPORT_URL: "https://app.medha.pro/ops/support",
