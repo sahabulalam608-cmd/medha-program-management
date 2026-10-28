@@ -52,7 +52,7 @@ const TRACKER_GROUPS = [
 
 const Api = (() => {
   const cache = new Map();
-  const CACHE_TTL = 8_000;  // 8s — sheet edits appear almost instantly
+  const CACHE_TTL = 3_000;  // 3s — near-instant sheet sync
 
   const getConfig = () => {
     try {
@@ -305,7 +305,13 @@ const Api = (() => {
 
     const out = data.table.rows.map((row, i) => {
       const c = row.c || [];
-      const raw = (n) => (n >= 0 && c[n] && c[n].v != null ? c[n].v : "");
+      /* prefer formatted text (c.f) so phone numbers stay "1713014244"
+         instead of scientific 1.713014244E9 from gviz */
+      const raw = (n) => {
+        if (n < 0 || !c[n]) return "";
+        if (c[n].f != null && String(c[n].f).trim() !== "") return c[n].f;
+        return c[n].v != null ? c[n].v : "";
+      };
       const str = (n) => String(raw(n) == null ? "" : raw(n)).trim();
       const tranId = idx.tranId >= 0 ? str(idx.tranId) : "";
       let memberId = idx.id >= 0 ? str(idx.id) : "";
@@ -515,19 +521,29 @@ const Api = (() => {
     };
   };
 
-  const buildMemberSet = (p1, p2, source, note, fromBatch01) => ({
-    "NCM PART-1": p1,
-    "NCM PART-2": p2,
-    _all: [...p1, ...p2],
-    /* the "own mailbox" rows — the mail portal shows them, nothing else does */
-    _examples: {
-      "NCM PART-1": (p1 && p1._examples) || [],
-      "NCM PART-2": (p2 && p2._examples) || [],
-    },
-    _p2Source: source,
-    _p2Note: note,
-    _p2FromBatch01: !!fromBatch01,
-  });
+  const buildMemberSet = (p1, p2, source, note, fromBatch01) => {
+    /* email/name → Master File profile, used by the member drawer */
+    const byEmail = {};
+    const byName = {};
+    for (const row of (p2 || [])) {
+      if (row.email) byEmail[String(row.email).toLowerCase()] = row;
+      if (row.name) byName[String(row.name).toLowerCase().trim()] = row;
+    }
+    return {
+      "NCM PART-1": p1,
+      "NCM PART-2": p2,
+      _all: [...p1, ...p2],
+      _examples: {
+        "NCM PART-1": (p1 && p1._examples) || [],
+        "NCM PART-2": (p2 && p2._examples) || [],
+      },
+      _p2Source: source,
+      _p2Note: note,
+      _p2FromBatch01: !!fromBatch01,
+      _profileByEmail: byEmail,
+      _profileByName: byName,
+    };
+  };
 
   const fetchAllMembers = async () => {
     try {
@@ -594,8 +610,12 @@ const Api = (() => {
           .then(r => (r && r.success) ? r.data : fetchAllMembers())
           .catch(() => fetchAllMembers())
       : fetchAllMembers();
-    work.then(fresh => {
+    work.then(async (fresh) => {
       backgroundRefresh._running = false;
+      try {
+        const prof = await Api.fetchMasterProfiles(false);
+        fresh = Api.applyMasterProfiles(fresh, prof);
+      } catch (e) {}
       try { writeLocalCache(fresh); } catch (e) {}
       try { if (typeof Api._freshCb === "function") Api._freshCb(fresh); } catch (e) {}
     }).catch(() => { backgroundRefresh._running = false; });
@@ -637,7 +657,7 @@ const Api = (() => {
 
   /* --- localStorage persistence (instant paint on repeat visits) --- */
   const LS_KEY = "mpm.cache.members";
-  const LS_TTL = 5 * 60 * 1000;   // 5 min — sheet is authoritative, this is just a fast first paint
+  const LS_TTL = 3 * 1000;   // 3s — near-instant sheet sync
 
   const readLocalCache = () => {
     try {
@@ -755,6 +775,71 @@ const Api = (() => {
      *  - a background refresh swaps in fresh data when it lands
      *  - the UI is never blocked on the network
      */
+    /** Always overlay Master File profile fields (phone, address, …) by email/name.
+        Runs on every load so the drawer never stays blank even if the backend
+        could not open the Batch-01 spreadsheet. */
+    _masterProfileCache: null,
+    _masterProfileAt: 0,
+    fetchMasterProfiles: async (force = false) => {
+      if (!force && Api._masterProfileCache && Date.now() - Api._masterProfileAt < 3000) {
+        return Api._masterProfileCache;
+      }
+      try {
+        const data = await readGviz(BATCH01_SHEET_ID, "738811071", 0, { timeout: 8000, retries: 1 });
+        const rows = parseMembersByHeader(data, "Master File") || [];
+        const byEmail = {}, byName = {};
+        for (const row of rows) {
+          if (row.email) byEmail[String(row.email).toLowerCase()] = row;
+          if (row.name) byName[String(row.name).toLowerCase().trim()] = row;
+        }
+        Api._masterProfileCache = { rows, byEmail, byName };
+        Api._masterProfileAt = Date.now();
+        return Api._masterProfileCache;
+      } catch (e) {
+        console.warn("Master File profile fetch failed", e);
+        return Api._masterProfileCache || { rows: [], byEmail: {}, byName: {} };
+      }
+    },
+    applyMasterProfiles: (memberData, profiles) => {
+      if (!memberData || !profiles) return memberData;
+      const byE = profiles.byEmail || {};
+      const byN = profiles.byName || {};
+      const paint = (list) => (list || []).map((m) => {
+        const hit = (m.email && byE[String(m.email).toLowerCase()])
+          || (m.name && byN[String(m.name).toLowerCase().trim()]);
+        if (!hit) return m;
+        return {
+          ...m,
+          phone: hit.phone || m.phone || "",
+          whatsapp: hit.whatsapp || m.whatsapp || "",
+          address: hit.address || m.address || "",
+          courseMail: hit.courseMail || m.courseMail || "",
+          medhaEmail: hit.medhaEmail || m.medhaEmail || "",
+          facebook: hit.facebook || m.facebook || "",
+          fbProfile: hit.fbProfile || hit.facebook || m.fbProfile || m.facebook || "",
+          programEmail: hit.programEmail || hit.email || m.programEmail || m.email || "",
+          plan: hit.plan || m.plan || "",
+          team: hit.team || m.team || "",
+          tag: hit.tag || m.tag || "",
+          tranId: hit.tranId || m.tranId || "",
+          pageLink: hit.pageLink || m.pageLink || "",
+        };
+      });
+      const p1 = paint(memberData["NCM PART-1"]);
+      const p2 = paint(memberData["NCM PART-2"]);
+      const out = {
+        ...memberData,
+        "NCM PART-1": p1,
+        "NCM PART-2": p2,
+        _all: [...p1, ...p2],
+        _profileByEmail: byE,
+        _profileByName: byN,
+        _p2FromBatch01: true,
+        _p2Source: memberData._p2Source || "Master File",
+      };
+      return out;
+    },
+
     getMembers: async (force = false) => {
       if (force) { cache.clear(); try { localStorage.removeItem(LS_KEY); } catch (e) {} }
 
@@ -763,18 +848,31 @@ const Api = (() => {
       const cached = readLocalCache();
       if (cached) {
         backgroundRefresh();      // refresh in background — UI already painted
+        /* still refresh Master File profiles in background for the drawer */
+        Api.fetchMasterProfiles(false).then((prof) => {
+          const enriched = Api.applyMasterProfiles(cached, prof);
+          try { writeLocalCache(enriched); } catch (e) {}
+          try { if (typeof Api._freshCb === "function") Api._freshCb(enriched); } catch (e) {}
+        }).catch(() => {});
         return cached;
       }
 
       /* Cold start: one wait for the sheet, then it is cached for next time */
       const backend = getBackendUrl();
+      let data = null;
       if (backend) {
         try {
           const r = await backendCall("getAllMembers");
-          if (r && r.success) { writeLocalCache(r.data); return r.data; }
+          if (r && r.success) data = r.data;
         } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
       }
-      return fetchAllMembers();
+      if (!data) data = await fetchAllMembers();
+      try {
+        const prof = await Api.fetchMasterProfiles(force);
+        data = Api.applyMasterProfiles(data, prof);
+      } catch (e) {}
+      writeLocalCache(data);
+      return data;
     },
 
     /** Called by the app when the background refresh lands, to repaint. */
@@ -1339,5 +1437,57 @@ const Api = (() => {
     syncGmail: async () => backendCall("syncGmailSent", {}),
 
     refreshCache: () => cache.clear(),
+
+    /** Look up Master File fields for a member (by email, then name, then id) */
+    resolveProfile: (m, data) => {
+      if (!m) return {};
+      const d = data || {};
+      const byE = d._profileByEmail || {};
+      const byN = d._profileByName || {};
+      const em = String(m.email || "").toLowerCase();
+      const nm = String(m.name || "").toLowerCase().trim();
+      const hit = (em && byE[em]) || (nm && byN[nm]) || null;
+      if (!hit) {
+        /* member itself may already carry Master File fields */
+        return {
+          phone: m.phone || "",
+          whatsapp: m.whatsapp || "",
+          address: m.address || "",
+          courseMail: m.courseMail || "",
+          medhaEmail: m.medhaEmail || "",
+          facebook: m.facebook || m.fbProfile || "",
+          fbProfile: m.fbProfile || m.facebook || "",
+          programEmail: m.programEmail || m.email || "",
+          plan: m.plan || "",
+          team: m.team || "",
+          tag: m.tag || "",
+          tranId: m.tranId || "",
+          pageLink: m.pageLink || "",
+        };
+      }
+      return {
+        phone: hit.phone || m.phone || "",
+        whatsapp: hit.whatsapp || m.whatsapp || "",
+        address: hit.address || m.address || "",
+        courseMail: hit.courseMail || m.courseMail || "",
+        medhaEmail: hit.medhaEmail || m.medhaEmail || "",
+        facebook: hit.facebook || hit.fbProfile || m.facebook || "",
+        fbProfile: hit.fbProfile || hit.facebook || m.fbProfile || "",
+        programEmail: hit.programEmail || hit.email || m.email || "",
+        plan: hit.plan || m.plan || "",
+        team: hit.team || m.team || "",
+        tag: hit.tag || m.tag || "",
+        tranId: hit.tranId || m.tranId || "",
+        pageLink: hit.pageLink || m.pageLink || "",
+        email: hit.email || m.email || "",
+      };
+    },
+
+    /** Full Gmail body for one inbox thread (backend) */
+    getMailBody: async (threadId) => {
+      if (!getBackendUrl() || !threadId) return { success: false, body: "" };
+      try { return await backendCall("getMailBody", { threadId }); }
+      catch (e) { return { success: false, body: "", message: e.message }; }
+    },
   };
 })();

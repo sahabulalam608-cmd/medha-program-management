@@ -1155,12 +1155,15 @@ const App = (() => {
   const openMemberDrawer = (memberId) => {
     const m = (window.__mpmAll || []).find(x => x.memberId === memberId);
     if (!m) return;
-    /* NCM master is keyed by NCM-xx ids; Batch-01 enrichment already lives on m */
+    /* Master File fields via resolveProfile (email/name match) */
+    const prof = (Api.resolveProfile ? Api.resolveProfile(m, state.data) : {}) || {};
     const masterList = state.master || [];
-    let prof = masterList.find(x => x.memberId === memberId) || {};
-    if (!prof.phone && !prof.medhaEmail && m.email) {
-      const em = String(m.email).toLowerCase();
-      prof = masterList.find(x => String(x.email || x.programEmail || "").toLowerCase() === em) || prof;
+    const ncmProf = masterList.find(x => x.memberId === memberId)
+      || (m.email && masterList.find(x => String(x.email || "").toLowerCase() === String(m.email).toLowerCase()))
+      || {};
+    /* merge NCM master on top only for fields still empty */
+    for (const k of ["phone","whatsapp","address","plan","team","tag","fbProfile","programEmail","medhaEmail"]) {
+      if (!prof[k] && ncmProf[k]) prof[k] = ncmProf[k];
     }
     const track = (state.tracker || []).find(x => x.memberId === memberId) || {};
 
@@ -1196,17 +1199,17 @@ const App = (() => {
 
     const panes = {
       profile: () => `
-        ${info("Email", m.email)}
-        ${info("Phone", prof.phone || m.phone || "")}
-        ${info("WhatsApp", prof.whatsapp || m.whatsapp || "")}
-        ${info("Address", prof.address || m.address || "")}
-        ${info("Program email", prof.programEmail || m.programEmail || m.email || "")}
-        ${info("Course mail", prof.courseMail || m.courseMail || "")}
-        ${info("Medha login email", prof.medhaEmail || m.medhaEmail || "")}
-        ${info("Plan", prof.plan || m.plan || "")}
-        ${info("Tag", prof.tag || m.tag || "")}
-        ${info("Team category", prof.team || m.team || "")}
-        ${info("FB profile", prof.fbProfile || m.fbProfile || m.facebook || "", ((prof.fbProfile || m.fbProfile || m.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || m.fbProfile || m.facebook) : ""), "assets/img/facebook-icon.png")}
+        ${info("Email", m.email || prof.email || "")}
+        ${info("Phone", prof.phone || "")}
+        ${info("WhatsApp", prof.whatsapp || "")}
+        ${info("Address", prof.address || "")}
+        ${info("Program email", prof.programEmail || m.email || "")}
+        ${info("Course mail", prof.courseMail || "")}
+        ${info("Medha login email", prof.medhaEmail || "")}
+        ${info("Plan", prof.plan || "")}
+        ${info("Tag", prof.tag || "")}
+        ${info("Team category", prof.team || "")}
+        ${info("FB profile", prof.fbProfile || prof.facebook || "", ((prof.fbProfile || prof.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || prof.facebook) : ""), "assets/img/facebook-icon.png")}
         ${info("Page link", prof.pageLink, prof.pageLink)}
         ${info("Transaction ID", m.tranId)}
         ${info("Mail status", m.status || "Not set")}
@@ -3724,6 +3727,21 @@ const App = (() => {
         loadMailBadge();
       }
       paint();
+      /* load full body from Gmail when expanded */
+      if (m.open && backend && m.threadId && !m.bodyLoaded) {
+        m.body = m.body || m.preview || "Loading…";
+        paint();
+        Api.getMailBody(m.threadId).then((r) => {
+          m.bodyLoaded = true;
+          if (r && r.success && r.body) m.body = r.body;
+          else if (!m.body || m.body === "Loading…") m.body = m.preview || "(no body text)";
+          paint();
+        }).catch(() => {
+          m.bodyLoaded = true;
+          if (!m.body || m.body === "Loading…") m.body = m.preview || "(no body text)";
+          paint();
+        });
+      }
     });
 
     document.getElementById("mpSyncGmail")?.addEventListener("click", async () => {
