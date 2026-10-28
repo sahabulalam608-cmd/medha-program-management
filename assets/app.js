@@ -1774,7 +1774,7 @@ const App = (() => {
     };
 
     const loadTracker = async () => {
-      const fresh = await Api.getNcmTracker(month);
+      const fresh = await Api.getNcmTracker(month, true);
       state.tracker = fresh;
       rows.length = 0;
       fresh.forEach(r => rows.push(r));
@@ -3340,19 +3340,38 @@ const App = (() => {
         cell.addEventListener("change", async () => {
           const { cell: key, row } = cell.dataset;
           const value = cell.dataset.type === "att" ? cell.value : (cell.value === "" ? "" : parseFloat(cell.value));
+          const rowNum = parseInt(row, 10);
+
+          /* optimistic UI — keep colour + value even before the sheet answers */
+          const td = cell.closest("td");
+          if (td && cell.dataset.type === "att") {
+            td.classList.remove("is-punctual", "is-late", "is-absent");
+            const lv = String(value || "").toLowerCase();
+            if (lv === "punctual") td.classList.add("is-punctual");
+            else if (lv === "late") td.classList.add("is-late");
+            else if (lv === "absent") td.classList.add("is-absent");
+          }
+          const rec = (state.tracker || []).find(r => r._row === rowNum);
+          if (rec) rec[key] = value == null ? "" : String(value);
+
           cell.classList.add("saving");
           try {
-            await Api.setTrackerCell({ tab: state.monthTab, row: parseInt(row, 10), key, value });
+            await Api.setTrackerCell({ tab: state.monthTab, row: rowNum, key, value });
             cell.classList.remove("saving");
             cell.classList.add("saved");
             setTimeout(() => cell.classList.remove("saved"), 900);
+            /* force a fresh read (cache already cleared in setTrackerCell) */
             setTimeout(async () => {
-              const fresh = await Api.getNcmTracker(state.monthTab);
-              state.tracker = fresh;
-              const tb = document.getElementById("trackerBody");
-              if (tb) tb.innerHTML = fresh.map(r => trackerRow(r, cs, true)).join("");
-              bindTrackerEdits(cs);
-            }, 700);
+              try {
+                const fresh = await Api.getNcmTracker(state.monthTab, true);
+                state.tracker = fresh;
+                const tb = document.getElementById("trackerBody");
+                if (tb) {
+                  tb.innerHTML = fresh.map(r => trackerRow(r, cs, true)).join("");
+                  bindTrackerEdits(cs);
+                }
+              } catch (e) { /* keep optimistic UI */ }
+            }, 1200);
           } catch (err) {
             cell.classList.remove("saving");
             cell.classList.add("save-err");
