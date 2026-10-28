@@ -830,18 +830,32 @@ const App = (() => {
     }
 
     els.content.scrollTop = 0;
+
+    /* INSTANT: paint from memory if we already have members — never wait on a spinner */
+    const paintNow = (data) => {
+      state.data = data;
+      window.__mpmAll = data._all || [];
+      render(view, data);
+      requestAnimationFrame(() => restoreScroll(view));
+    };
+
+    if (state.data && state.data._all) {
+      paintNow(state.data);
+      /* quiet background refresh */
+      Api.getMembers().then((fresh) => {
+        state.data = fresh;
+        window.__mpmAll = fresh._all || [];
+        if (state.view === view) render(view, fresh);
+      }).catch(() => {});
+      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      return;
+    }
+
     renderLoading();
     try {
       const data = await Api.getMembers();
-      state.data = data;
-      // NCM master file (enriched profiles) — load in parallel, never block
+      paintNow(data);
       Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
-      requestAnimationFrame(() => {
-        render(view, data);
-        /* restore the scroll position of this view (after a reload or a
-           browser Back), once the content has actually been painted */
-        requestAnimationFrame(() => restoreScroll(view));
-      });
     } catch (err) {
       renderError(err);
     }
@@ -1188,7 +1202,16 @@ const App = (() => {
   const openMemberDrawer = (memberId) => {
     const m = (window.__mpmAll || []).find(x => x.memberId === memberId);
     if (!m) return;
-    const prof = (state.master || []).find(x => x.memberId === memberId) || {};
+    /* Part-1 NCM Master (by id). For Part-2 most fields live on the member row
+       from Batch-01 Master File — match Part-1 master only as a fallback. */
+    let prof = (state.master || []).find(x => x.memberId === memberId) || {};
+    if (!prof.phone && !prof.programEmail && (state.master || []).length) {
+      const byMail = (state.master || []).find(x => m.email && x.programEmail &&
+        String(x.programEmail).toLowerCase() === String(m.email).toLowerCase());
+      const byName = (state.master || []).find(x => m.name && x.name &&
+        String(x.name).toLowerCase().trim() === String(m.name).toLowerCase().trim());
+      prof = byMail || byName || prof;
+    }
     const track = (state.tracker || []).find(x => x.memberId === memberId) || {};
 
     const info = (label, value, href, icon) => `
@@ -1223,17 +1246,17 @@ const App = (() => {
 
     const panes = {
       profile: () => `
-        ${info("Email", m.email)}
-        ${info("Phone", prof.phone || m.phone)}
-        ${info("WhatsApp", prof.whatsapp || m.whatsapp)}
-        ${info("Address", m.address)}
-        ${info("Program email", prof.programEmail)}
-        ${info("Course mail", m.courseMail)}
-        ${info("Medha login email", prof.medhaEmail || m.medhaEmail)}
-        ${info("Plan", prof.plan || m.plan)}
-        ${info("Tag", prof.tag)}
-        ${info("Team category", prof.team || m.team)}
-        ${info("FB profile", prof.fbProfile || m.facebook, (prof.fbProfile || m.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || m.facebook) : "", "assets/img/facebook-icon.png")}
+        ${info("Email", m.email || prof.programEmail)}
+        ${info("Phone", m.phone || prof.phone)}
+        ${info("WhatsApp", m.whatsapp || prof.whatsapp)}
+        ${info("Address", m.address || prof.address || "")}
+        ${info("Program email", m.email || prof.programEmail)}
+        ${info("Course mail", m.courseMail || m.email || "")}
+        ${info("Medha login email", m.medhaEmail || prof.medhaEmail)}
+        ${info("Plan", m.plan || prof.plan)}
+        ${info("Tag", m.tag || prof.tag)}
+        ${info("Team category", m.team || prof.team)}
+        ${info("FB profile", m.facebook || prof.fbProfile, (m.facebook || prof.fbProfile || "").match(/^https?:\/\//) ? (prof.fbProfile || m.facebook) : "", "assets/img/facebook-icon.png")}
         ${info("Page link", prof.pageLink, prof.pageLink)}
         ${info("Transaction ID", m.tranId)}
         ${info("Mail status", m.status || "Not set")}

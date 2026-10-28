@@ -349,7 +349,7 @@ const Api = (() => {
      a failure is retried every couple of minutes (in case the sheet is
      shared later). */
   let batch01Cache = null;
-  const BATCH01_RETRY_MS = 120_000;
+  const BATCH01_RETRY_MS = 15_000;
 
   /**
    * Find the tab names of a spreadsheet.
