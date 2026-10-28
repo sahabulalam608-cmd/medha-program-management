@@ -722,6 +722,25 @@ function markMailRead(threadId) {
 
 /** Run this once so Apps Script asks for permission to read Gmail.
     (Without it the inbox cannot be read at all.) */
+/**
+ * Does everything in one go — run THIS one only.
+ *   1. the program tabs and the Status dropdown
+ *   2. permission to read the Gmail inbox
+ * The result is shown in the Execution log on the left.
+ */
+function setupAll() {
+  var out = [];
+  try {
+    var r1 = setupProgramSheets();
+    out.push(r1 && r1.success ? "Sheets: ready — " + r1.message : "Sheets: " + ((r1 && r1.message) || "failed"));
+  } catch (e) { out.push("Sheets: " + String((e && e.message) || e)); }
+  try {
+    var r2 = setupGmail();
+    out.push(r2 && r2.success ? "Gmail: " + r2.message : "Gmail: " + ((r2 && r2.message) || "failed"));
+  } catch (e) { out.push("Gmail: " + String((e && e.message) || e)); }
+  return { success: true, message: out.join(" | ") };
+}
+
 function setupGmail() {
   try {
     var n = GmailApp.getInboxUnreadCount();
