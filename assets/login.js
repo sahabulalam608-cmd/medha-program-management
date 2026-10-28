@@ -79,7 +79,7 @@ const Login = (() => {
     if (userEl && !userEl.value) userEl.value = v.username;
     if (passEl && !passEl.value) passEl.value = v.password || "";
     if (rememberEl) rememberEl.checked = true;
-    if (forgetEl) forgetEl.hidden = false;
+    if (forgetEl) forgetEl.hidden = true;
   };
 
   const readSession = () => {

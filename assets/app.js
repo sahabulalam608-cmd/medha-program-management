@@ -77,8 +77,16 @@ const App = (() => {
     // refresh the signed-in user when the user signs in / out
     window.addEventListener("mpm:login", () => setTimeout(renderSignedInUser, 60));
     const boot = parseHash();
-    /* Warm the member cache so every tab opens instantly */
-    Api.getMembers(false).then((d) => { if (d) state.data = d; }).catch(() => {});
+    /* Warm caches so every tab opens instantly */
+    Api.getMembers(false).then((d) => {
+      if (d) state.data = d;
+      /* prefetch October tracker (most used) */
+      const tab = (Api.NCM_TABS && Api.NCM_TABS.trackers && Api.NCM_TABS.trackers[0]) || "October Tracker";
+      Api.getNcmTracker(tab, false).then((rows) => {
+        state.trackerCache = state.trackerCache || {};
+        if (rows) { state.trackerCache[tab] = rows; state.tracker = rows; }
+      }).catch(() => {});
+    }).catch(() => {});
     setView(boot.view || "overview", { replace: true, sub: boot.sub });
     loadMailBadge();
     // When a background sheet refresh lands, repaint the current view
@@ -1758,6 +1766,15 @@ const App = (() => {
             v = isNaN(n) ? "" : n;
           }
           const k = inp.dataset.mid + "|" + inp.dataset.k;
+          /* undo stack for scores */
+          if (inp.dataset._prevVal === undefined) inp.dataset._prevVal = inp.defaultValue || "";
+          if (String(inp.dataset._prevVal) !== String(v) && save) {
+            state.trackerUndo = state.trackerUndo || [];
+            state.trackerUndo.push({ cell: inp, prev: inp.dataset._prevVal, next: v == null ? "" : String(v) });
+            if (state.trackerUndo.length > 80) state.trackerUndo.shift();
+            state.trackerRedo = [];
+            inp.dataset._prevVal = v == null ? "" : String(v);
+          }
           draft[k] = v;
           try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) {}
           /* update the row's Total / Grade in place — no re-render, so the
@@ -3250,14 +3267,32 @@ const App = (() => {
 
   const renderClasses = async (data, head) => {
     const month = state.monthTab || Api.NCM_TABS.trackers[0];
+    state.trackerCache = state.trackerCache || {};
 
-    els.content.innerHTML = `
-      ${head("Classes & attendance", VIEWS.classes.bn)}
-      <div class="loading"><span class="spinner"></span>Loading tracker\u2026</div>
-    `;
-
-    const rows = await Api.getNcmTracker(month);
+    let rows = state.trackerCache[month] || null;
+    const hadCache = !!(rows && rows.length);
+    if (!hadCache) {
+      els.content.innerHTML = `
+        ${head("Classes & attendance", VIEWS.classes.bn)}
+        <div class="loading"><span class="spinner"></span>Loading tracker\u2026</div>
+      `;
+      rows = await Api.getNcmTracker(month);
+    }
     state.tracker = rows;
+    state.trackerCache[month] = rows;
+    if (hadCache) {
+      Api.getNcmTracker(month, false).then((fresh) => {
+        if (!fresh || !fresh.length) return;
+        state.trackerCache[month] = fresh;
+        state.tracker = fresh;
+        if (state.view !== "classes") return;
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === "SELECT" || ae.tagName === "INPUT")) return;
+        if ((state.monthTab || Api.NCM_TABS.trackers[0]) === month) {
+          renderClasses(data, head);
+        }
+      }).catch(() => {});
+    }
 
     // join the NCM Master File so the result card has email / mobile / facebook
     let master = state.master && state.master.length ? state.master : (Api.getNcmMasterCached?.() || []);
@@ -3359,6 +3394,98 @@ const App = (() => {
       renderClasses(state.data, head);
       toast("Tracker reloaded", "success");
     });
+
+    /* Sheet-like undo / copy / paste for tracker cells */
+    state.trackerUndo = state.trackerUndo || [];
+    state.trackerRedo = state.trackerRedo || [];
+    state.trackerClip = state.trackerClip || "";
+
+    const applyCellLocal = (cell, value, pushUndo) => {
+      if (!cell) return;
+      const prev = cell.value;
+      if (pushUndo && prev !== String(value ?? "")) {
+        state.trackerUndo.push({ cell, prev, next: value });
+        if (state.trackerUndo.length > 80) state.trackerUndo.shift();
+        state.trackerRedo = [];
+      }
+      cell.value = value == null ? "" : value;
+      cell.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    if (!window.__mpmTrackerKeys) {
+      window.__mpmTrackerKeys = true;
+      document.addEventListener("keydown", (e) => {
+        const t = e.target;
+        if (!t || !t.closest) return;
+        const inClasses = state.view === "classes" && t.closest("#trackerBody");
+        const inScores = state.view === "scores" && (t.classList.contains("score-in") || t.closest("#scoreBody"));
+        if (!inClasses && !inScores) return;
+        const cell = inClasses
+          ? (t.closest("[data-cell]") || (t.matches && t.matches("[data-cell]") ? t : null))
+          : (t.classList.contains("score-in") ? t : t.closest(".score-in"));
+        if (!cell) return;
+        const mod = e.ctrlKey || e.metaKey;
+        state.trackerUndo = state.trackerUndo || [];
+        state.trackerRedo = state.trackerRedo || [];
+        if (mod && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
+          e.preventDefault();
+          const u = state.trackerUndo.pop();
+          if (!u) return;
+          state.trackerRedo.push(u);
+          u.cell.value = u.prev;
+          u.cell.dispatchEvent(new Event(inScores ? "input" : "change", { bubbles: true }));
+          if (inScores) u.cell.dispatchEvent(new Event("change", { bubbles: true }));
+          return;
+        }
+        if (mod && ((e.key === "y" || e.key === "Y") || (e.shiftKey && (e.key === "z" || e.key === "Z")))) {
+          e.preventDefault();
+          const r = state.trackerRedo.pop();
+          if (!r) return;
+          state.trackerUndo.push(r);
+          r.cell.value = r.next;
+          r.cell.dispatchEvent(new Event(inScores ? "input" : "change", { bubbles: true }));
+          if (inScores) r.cell.dispatchEvent(new Event("change", { bubbles: true }));
+          return;
+        }
+        if (mod && (e.key === "c" || e.key === "C")) {
+          state.trackerClip = cell.value;
+          try { navigator.clipboard.writeText(cell.value || ""); } catch (err) {}
+          return;
+        }
+        if (mod && (e.key === "v" || e.key === "V")) {
+          e.preventDefault();
+          let paste = state.trackerClip;
+          try {
+            /* prefer system clipboard when available */
+          } catch (err) {}
+          if (inClasses && cell.dataset.type === "att") {
+            const ok = ["", "Punctual", "Late", "Absent"];
+            const hit = ok.find(x => x.toLowerCase() === String(paste || "").toLowerCase());
+            applyCellLocal(cell, hit != null ? hit : cell.value, true);
+          } else {
+            const prev = cell.value;
+            cell.value = paste == null ? "" : paste;
+            state.trackerUndo.push({ cell, prev, next: cell.value });
+            state.trackerRedo = [];
+            cell.dispatchEvent(new Event("input", { bubbles: true }));
+            cell.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          return;
+        }
+        if (mod && (e.key === "a" || e.key === "A")) {
+          if (cell.tagName === "INPUT") {
+            e.preventDefault();
+            cell.select();
+          }
+          return;
+        }
+        if ((e.key === "Backspace" || e.key === "Delete") && inClasses && cell.dataset.type === "att" && cell.tagName === "SELECT") {
+          e.preventDefault();
+          applyCellLocal(cell, "", true);
+          return;
+        }
+      });
+    }
 
     const bindTrackerEdits = (cs) => {
       document.querySelectorAll("#trackerBody [data-cell]").forEach(cell => {
