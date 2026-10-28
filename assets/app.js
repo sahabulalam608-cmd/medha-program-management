@@ -77,6 +77,8 @@ const App = (() => {
     // refresh the signed-in user when the user signs in / out
     window.addEventListener("mpm:login", () => setTimeout(renderSignedInUser, 60));
     const boot = parseHash();
+    /* Warm the member cache so every tab opens instantly */
+    Api.getMembers(false).then((d) => { if (d) state.data = d; }).catch(() => {});
     setView(boot.view || "overview", { replace: true, sub: boot.sub });
     loadMailBadge();
     // When a background sheet refresh lands, repaint the current view
@@ -797,16 +799,30 @@ const App = (() => {
     }
 
     els.content.scrollTop = 0;
+    /* Instant paint when we already have members in memory */
+    if (state.data && state.data._all) {
+      requestAnimationFrame(() => {
+        render(view, state.data);
+        requestAnimationFrame(() => restoreScroll(view));
+      });
+      /* quiet background refresh — does not blank the page */
+      Api.getMembers(false).then((fresh) => {
+        if (!fresh) return;
+        state.data = fresh;
+        if (state.view === view) {
+          requestAnimationFrame(() => render(view, fresh));
+        }
+      }).catch(() => {});
+      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      return;
+    }
     renderLoading();
     try {
       const data = await Api.getMembers();
       state.data = data;
-      // NCM master file (enriched profiles) — load in parallel, never block
       Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
       requestAnimationFrame(() => {
         render(view, data);
-        /* restore the scroll position of this view (after a reload or a
-           browser Back), once the content has actually been painted */
         requestAnimationFrame(() => restoreScroll(view));
       });
     } catch (err) {
@@ -3582,9 +3598,12 @@ const App = (() => {
           tag: "inbox",
           subject: m.subject || "(no subject)",
           preview: m.snippet || "",
+          body: m.body || m.snippet || "",
+          bodyLoaded: !!(m.body && String(m.body).trim()),
           time: m.date ? stamp(m.date) : "",
           unread: !!m.unread,
           threadId: m.threadId || "",
+          open: false,
         })) : [];
       } catch (e) {
         liveMails = [];
@@ -3728,19 +3747,26 @@ const App = (() => {
       }
       paint();
       /* load full body from Gmail when expanded */
-      if (m.open && backend && m.threadId && !m.bodyLoaded) {
-        m.body = m.body || m.preview || "Loading…";
+      if (m.open && !m.bodyLoaded) {
+        const starter = (m.body && m.body !== "Loading…" ? m.body : "") || m.preview || "";
+        m.body = starter || "Loading…";
         paint();
-        Api.getMailBody(m.threadId).then((r) => {
+        if (backend && m.threadId) {
+          Api.getMailBody(m.threadId).then((r) => {
+            m.bodyLoaded = true;
+            if (r && r.success && r.body) m.body = r.body;
+            else m.body = starter || (r && r.message ? ("Could not load body: " + r.message) : "(no body text)");
+            paint();
+          }).catch((e) => {
+            m.bodyLoaded = true;
+            m.body = starter || ("Could not load body: " + (e && e.message ? e.message : "error"));
+            paint();
+          });
+        } else {
           m.bodyLoaded = true;
-          if (r && r.success && r.body) m.body = r.body;
-          else if (!m.body || m.body === "Loading…") m.body = m.preview || "(no body text)";
+          m.body = starter || "(no body text — connect backend)";
           paint();
-        }).catch(() => {
-          m.bodyLoaded = true;
-          if (!m.body || m.body === "Loading…") m.body = m.preview || "(no body text)";
-          paint();
-        });
+        }
       }
     });
 
@@ -4851,12 +4877,10 @@ const App = (() => {
     }
     document.getElementById("pmWatcher").textContent = new Date().toLocaleString("en-GB");
 
-    /* start on the first program that actually has members, so the table
-       is never empty when the page opens */
-    const firstWithMembers = ["NCM PART-1", "NCM PART-2"].find((p) => (data[p] || []).length);
+    /* Default stays on "— Select Program —" so the user chooses intentionally */
     const sel = document.getElementById("pmProgram");
-    if (sel && firstWithMembers) sel.value = firstWithMembers;
-    loadProgram(sel && sel.value ? sel.value : "");
+    if (sel) sel.value = "";
+    loadProgram("");
   };
 
   const renderComingSoon = (title, head) => {

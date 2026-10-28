@@ -867,11 +867,13 @@ const Api = (() => {
         } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
       }
       if (!data) data = await fetchAllMembers();
-      try {
-        const prof = await Api.fetchMasterProfiles(force);
-        data = Api.applyMasterProfiles(data, prof);
-      } catch (e) {}
       writeLocalCache(data);
+      /* Master File profiles in background — never block first paint */
+      Api.fetchMasterProfiles(!!force).then((prof) => {
+        const enriched = Api.applyMasterProfiles(data, prof);
+        try { writeLocalCache(enriched); } catch (e) {}
+        try { if (typeof Api._freshCb === "function") Api._freshCb(enriched); } catch (e) {}
+      }).catch(() => {});
       return data;
     },
 
