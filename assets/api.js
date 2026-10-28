@@ -52,7 +52,7 @@ const TRACKER_GROUPS = [
 
 const Api = (() => {
   const cache = new Map();
-  const CACHE_TTL = 30_000;  // 30s — so sheet edits show up quickly
+  const CACHE_TTL = 8_000;  // 8s — sheet edits appear almost instantly
 
   const getConfig = () => {
     try {
@@ -262,13 +262,13 @@ const Api = (() => {
     /* only an exact "Status" — "Payment Status" is a different thing */
     status:{ priority: ["status", "mailstatus", "mailstate"], exactOnly: true },
     sentAt:{ priority: ["sentat", "lastsent", "lastmail", "mailedat", "sentdate"] },
-    phone: { priority: ["phone", "mobile", "contact"] },
-    whatsapp: { priority: ["whatsapp", "whatsappnumber", "whatsappno"] },
+    phone: { priority: ["phone", "mobile", "contact", "phonenumber", "mobilenumber"] },
+    whatsapp: { priority: ["whatsapp", "whatsappnumber", "whatsappno", "wa"] },
     address: { priority: ["address", "addr", "location", "district"] },
-    facebook: { priority: ["facebook", "facebookprofile", "fb", "fblink", "fbprofile"] },
-    medhaEmail: { priority: ["medhaemail", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail"] },
-    courseMail: { priority: ["coursemail", "coursemailaddress"] },
-    tranId: { priority: ["tranid", "transid", "transactionid", "trxid", "trid", "paymentid"] },
+    facebook: { priority: ["facebook", "facebookprofile", "fb", "fblink", "fbprofile", "facebooklink"] },
+    medhaEmail: { priority: ["medhaemail", "medha_email", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail", "medhalogin"] },
+    courseMail: { priority: ["coursemail", "coursemailaddress", "course_mail"] },
+    tranId: { priority: ["tranid", "tran_id", "transid", "transactionid", "trxid", "trid", "paymentid"] },
     plan:  { priority: ["plan", "package"] },
     team:  { priority: ["team", "teamcategory", "category", "group"] },
     payStatus: { priority: ["paymentstatus", "paymentstate"] },
@@ -328,10 +328,15 @@ const Api = (() => {
       if (idx.phone >= 0) m.phone = bdPhone(raw(idx.phone));
       if (idx.whatsapp >= 0) m.whatsapp = bdPhone(raw(idx.whatsapp));
       if (idx.address >= 0) m.address = str(idx.address);
-      if (idx.facebook >= 0) m.facebook = str(idx.facebook);
+      if (idx.facebook >= 0) {
+        m.facebook = str(idx.facebook);
+        m.fbProfile = m.facebook;
+      }
       if (idx.medhaEmail >= 0) m.medhaEmail = str(idx.medhaEmail);
       if (idx.courseMail >= 0) m.courseMail = str(idx.courseMail);
       if (tranId) m.tranId = tranId;
+      /* program email = enrolled email when Master File is the source */
+      if (m.email) m.programEmail = m.email;
       if (idx.plan >= 0) m.plan = str(idx.plan);
       if (idx.team >= 0) m.team = str(idx.team);
       if (idx.payStatus >= 0) m.paymentStatus = str(idx.payStatus);

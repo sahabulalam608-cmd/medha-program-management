@@ -1155,7 +1155,13 @@ const App = (() => {
   const openMemberDrawer = (memberId) => {
     const m = (window.__mpmAll || []).find(x => x.memberId === memberId);
     if (!m) return;
-    const prof = (state.master || []).find(x => x.memberId === memberId) || {};
+    /* NCM master is keyed by NCM-xx ids; Batch-01 enrichment already lives on m */
+    const masterList = state.master || [];
+    let prof = masterList.find(x => x.memberId === memberId) || {};
+    if (!prof.phone && !prof.medhaEmail && m.email) {
+      const em = String(m.email).toLowerCase();
+      prof = masterList.find(x => String(x.email || x.programEmail || "").toLowerCase() === em) || prof;
+    }
     const track = (state.tracker || []).find(x => x.memberId === memberId) || {};
 
     const info = (label, value, href, icon) => `
@@ -1191,16 +1197,16 @@ const App = (() => {
     const panes = {
       profile: () => `
         ${info("Email", m.email)}
-        ${info("Phone", prof.phone || m.phone)}
-        ${info("WhatsApp", prof.whatsapp || m.whatsapp)}
-        ${info("Address", m.address)}
-        ${info("Program email", prof.programEmail)}
-        ${info("Course mail", m.courseMail)}
-        ${info("Medha login email", prof.medhaEmail || m.medhaEmail)}
-        ${info("Plan", prof.plan || m.plan)}
-        ${info("Tag", prof.tag)}
-        ${info("Team category", prof.team || m.team)}
-        ${info("FB profile", prof.fbProfile || m.facebook, (prof.fbProfile || m.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || m.facebook) : "", "assets/img/facebook-icon.png")}
+        ${info("Phone", prof.phone || m.phone || "")}
+        ${info("WhatsApp", prof.whatsapp || m.whatsapp || "")}
+        ${info("Address", prof.address || m.address || "")}
+        ${info("Program email", prof.programEmail || m.programEmail || m.email || "")}
+        ${info("Course mail", prof.courseMail || m.courseMail || "")}
+        ${info("Medha login email", prof.medhaEmail || m.medhaEmail || "")}
+        ${info("Plan", prof.plan || m.plan || "")}
+        ${info("Tag", prof.tag || m.tag || "")}
+        ${info("Team category", prof.team || m.team || "")}
+        ${info("FB profile", prof.fbProfile || m.fbProfile || m.facebook || "", ((prof.fbProfile || m.fbProfile || m.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || m.fbProfile || m.facebook) : ""), "assets/img/facebook-icon.png")}
         ${info("Page link", prof.pageLink, prof.pageLink)}
         ${info("Transaction ID", m.tranId)}
         ${info("Mail status", m.status || "Not set")}
@@ -3649,15 +3655,19 @@ const App = (() => {
       }
 
       el.innerHTML = items.map((m, i) => `
-        <article class="ml-item ${m.unread ? "unread" : ""}">
-          <div class="ml-avatar ${m.unread ? "" : "dim"}">${escapeHtml(m.from.charAt(0).toUpperCase())}</div>
+        <article class="ml-item ${m.unread ? "unread" : ""} ${m.open ? "open" : ""}" data-idx="${i}">
+          <div class="ml-avatar ${m.unread ? "" : "dim"}">${escapeHtml((m.from || "?").charAt(0).toUpperCase())}</div>
           <div class="ml-body">
             <div class="ml-row1">
               <span class="ml-from">${escapeHtml(m.from)}</span>
-              <span class="ml-tag ${m.tag}">${escapeHtml(m.tag)}</span>
+              <span class="ml-tag ${escapeHtml(m.tag || "inbox")}">${escapeHtml(m.tag || "inbox")}</span>
             </div>
             <div class="ml-subject">${escapeHtml(m.subject)}</div>
-            <div class="ml-preview">${escapeHtml(m.preview)}</div>
+            <div class="ml-preview">${escapeHtml(m.preview || "")}</div>
+            ${m.open ? `<div class="ml-fullbody" style="margin-top:10px;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13px;line-height:1.65;color:#334155;white-space:pre-wrap;">${escapeHtml(m.body || m.preview || "(no body text)")}</div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+              <button type="button" class="pm-chip-btn ghost ml-toggle-read" data-idx="${i}" style="font-size:12px;">${m.unread ? "Mark as read" : "Mark as unread"}</button>
+            </div>` : ""}
           </div>
           <div class="ml-meta">
             <span class="ml-time">${escapeHtml(m.time || "")}</span>
@@ -3681,16 +3691,35 @@ const App = (() => {
       paint();
     });
 
-    /* opening the inbox means the mails have been seen — mark them read */
+    /* click row → expand/collapse body; buttons control read state */
     document.getElementById("mailItems")?.addEventListener("click", (e) => {
+      const toggleBtn = e.target.closest(".ml-toggle-read");
+      if (toggleBtn) {
+        e.stopPropagation();
+        const idx = parseInt(toggleBtn.dataset.idx, 10);
+        const list = mailList();
+        const m = list[idx];
+        if (!m) return;
+        m.unread = !m.unread;
+        if (backend && m.threadId && !m.unread) {
+          Api.markMailRead(m.threadId).catch(() => {});
+        }
+        loadMailBadge();
+        paint();
+        return;
+      }
       const item = e.target.closest(".ml-item");
       if (!item) return;
-      const idx = Array.from(item.parentElement.children).indexOf(item);
+      const idx = parseInt(item.dataset.idx, 10);
       const list = mailList();
       const m = list[idx];
-      if (m) {
+      if (!m) return;
+      /* collapse others, toggle this one */
+      list.forEach((x, i) => { if (i !== idx) x.open = false; });
+      m.open = !m.open;
+      /* opening marks as read */
+      if (m.open && m.unread) {
         m.unread = false;
-        /* tell Gmail too, so the badge is right on every device */
         if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
         loadMailBadge();
       }
