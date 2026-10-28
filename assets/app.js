@@ -47,6 +47,12 @@ const App = (() => {
     renderSignedInUser();
     applySyncPrefToPill();
     startClock();
+    /* find out straight away whether the backend really answers */
+    checkBackendHealth().then(() => {
+      applySyncPrefToPill();
+      const m = document.getElementById("accountMenu");
+      if (m) m.remove();
+    });
     applyHiddenPages();
     Api.clearPendingRemovals();
     /* a link may carry a document list with it — bring it in and clean the
