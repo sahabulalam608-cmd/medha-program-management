@@ -77,16 +77,6 @@ const App = (() => {
     // refresh the signed-in user when the user signs in / out
     window.addEventListener("mpm:login", () => setTimeout(renderSignedInUser, 60));
     const boot = parseHash();
-    /* Warm caches so every tab opens instantly */
-    Api.getMembers(false).then((d) => {
-      if (d) state.data = d;
-      /* prefetch October tracker (most used) */
-      const tab = (Api.NCM_TABS && Api.NCM_TABS.trackers && Api.NCM_TABS.trackers[0]) || "October Tracker";
-      Api.getNcmTracker(tab, false).then((rows) => {
-        state.trackerCache = state.trackerCache || {};
-        if (rows) { state.trackerCache[tab] = rows; state.tracker = rows; }
-      }).catch(() => {});
-    }).catch(() => {});
     setView(boot.view || "overview", { replace: true, sub: boot.sub });
     loadMailBadge();
     // When a background sheet refresh lands, repaint the current view
@@ -807,30 +797,16 @@ const App = (() => {
     }
 
     els.content.scrollTop = 0;
-    /* Instant paint when we already have members in memory */
-    if (state.data && state.data._all) {
-      requestAnimationFrame(() => {
-        render(view, state.data);
-        requestAnimationFrame(() => restoreScroll(view));
-      });
-      /* quiet background refresh — does not blank the page */
-      Api.getMembers(false).then((fresh) => {
-        if (!fresh) return;
-        state.data = fresh;
-        if (state.view === view) {
-          requestAnimationFrame(() => render(view, fresh));
-        }
-      }).catch(() => {});
-      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
-      return;
-    }
     renderLoading();
     try {
       const data = await Api.getMembers();
       state.data = data;
+      // NCM master file (enriched profiles) — load in parallel, never block
       Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
       requestAnimationFrame(() => {
         render(view, data);
+        /* restore the scroll position of this view (after a reload or a
+           browser Back), once the content has actually been painted */
         requestAnimationFrame(() => restoreScroll(view));
       });
     } catch (err) {
@@ -885,10 +861,10 @@ const App = (() => {
       case "members": renderMembers(data, head); break;
       case "payments": renderPayments(data, head); return;
       case "agreements": renderAgreements(data, head); return;
-      case "classes": renderClasses(data, head); return;
+      case "classes": setTimeout(() => bindSheetKeys(els.content), 0); renderClasses(data, head); return;
       case "tasks": renderComingSoon("Tasks & workshops", head); break;
       case "feedback": renderComingSoon("Feedback", head); break;
-      case "scores": renderScores(data, head); return;
+      case "scores": setTimeout(() => bindSheetKeys(els.content), 0); renderScores(data, head); return;
       case "evidence": renderComingSoon("Evidence & reports", head); break;
       case "mail": renderMail(data, head); break;
       case "files": renderFiles(data, head); return;
@@ -1179,16 +1155,7 @@ const App = (() => {
   const openMemberDrawer = (memberId) => {
     const m = (window.__mpmAll || []).find(x => x.memberId === memberId);
     if (!m) return;
-    /* Master File fields via resolveProfile (email/name match) */
-    const prof = (Api.resolveProfile ? Api.resolveProfile(m, state.data) : {}) || {};
-    const masterList = state.master || [];
-    const ncmProf = masterList.find(x => x.memberId === memberId)
-      || (m.email && masterList.find(x => String(x.email || "").toLowerCase() === String(m.email).toLowerCase()))
-      || {};
-    /* merge NCM master on top only for fields still empty */
-    for (const k of ["phone","whatsapp","address","plan","team","tag","fbProfile","programEmail","medhaEmail"]) {
-      if (!prof[k] && ncmProf[k]) prof[k] = ncmProf[k];
-    }
+    const prof = (state.master || []).find(x => x.memberId === memberId) || {};
     const track = (state.tracker || []).find(x => x.memberId === memberId) || {};
 
     const info = (label, value, href, icon) => `
@@ -1223,17 +1190,17 @@ const App = (() => {
 
     const panes = {
       profile: () => `
-        ${info("Email", m.email || prof.email || "")}
-        ${info("Phone", prof.phone || "")}
-        ${info("WhatsApp", prof.whatsapp || "")}
-        ${info("Address", prof.address || "")}
-        ${info("Program email", prof.programEmail || m.email || "")}
-        ${info("Course mail", prof.courseMail || "")}
-        ${info("Medha login email", prof.medhaEmail || "")}
-        ${info("Plan", prof.plan || "")}
-        ${info("Tag", prof.tag || "")}
-        ${info("Team category", prof.team || "")}
-        ${info("FB profile", prof.fbProfile || prof.facebook || "", ((prof.fbProfile || prof.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || prof.facebook) : ""), "assets/img/facebook-icon.png")}
+        ${info("Email", m.email)}
+        ${info("Phone", prof.phone || m.phone)}
+        ${info("WhatsApp", prof.whatsapp || m.whatsapp)}
+        ${info("Address", m.address)}
+        ${info("Program email", prof.programEmail)}
+        ${info("Course mail", m.courseMail)}
+        ${info("Medha login email", prof.medhaEmail || m.medhaEmail)}
+        ${info("Plan", prof.plan || m.plan)}
+        ${info("Tag", prof.tag)}
+        ${info("Team category", prof.team || m.team)}
+        ${info("FB profile", prof.fbProfile || m.facebook, (prof.fbProfile || m.facebook || "").match(/^https?:\/\//) ? (prof.fbProfile || m.facebook) : "", "assets/img/facebook-icon.png")}
         ${info("Page link", prof.pageLink, prof.pageLink)}
         ${info("Transaction ID", m.tranId)}
         ${info("Mail status", m.status || "Not set")}
@@ -1766,15 +1733,6 @@ const App = (() => {
             v = isNaN(n) ? "" : n;
           }
           const k = inp.dataset.mid + "|" + inp.dataset.k;
-          /* undo stack for scores */
-          if (inp.dataset._prevVal === undefined) inp.dataset._prevVal = inp.defaultValue || "";
-          if (String(inp.dataset._prevVal) !== String(v) && save) {
-            state.trackerUndo = state.trackerUndo || [];
-            state.trackerUndo.push({ cell: inp, prev: inp.dataset._prevVal, next: v == null ? "" : String(v) });
-            if (state.trackerUndo.length > 80) state.trackerUndo.shift();
-            state.trackerRedo = [];
-            inp.dataset._prevVal = v == null ? "" : String(v);
-          }
           draft[k] = v;
           try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) {}
           /* update the row's Total / Grade in place — no re-render, so the
@@ -1844,6 +1802,8 @@ const App = (() => {
       paintScores();
       toast("Draft cleared", "success");
     });
+    bindSheetKeys(els.content);
+
 
     /* ---------- step 2 : selection ---------- */
     const paintSelection = () => {
@@ -3201,9 +3161,6 @@ const App = (() => {
       <span class="fc-actions">
         ${f.url ? `<a class="fc-btn" href="${escapeHtml(f.url)}" target="_blank" rel="noopener" title="Open">${ICONS.external}</a>` : ""}
         <button class="fc-btn" data-file-edit="${escapeHtml(f.id)}" title="Rename / edit" aria-label="Rename ${escapeHtml(f.name)}">${ICONS.edit}</button>
-        <button class="fc-remove" data-file-del="${escapeHtml(f.id)}" title="Remove this file from Files">
-          ${ICONS.trash}<span>Remove</span>
-        </button>
       </span>
     </div>`;
 
@@ -3263,36 +3220,106 @@ const App = (() => {
 
 
   /* ================= CLASS & ATTENDANCE (NCM tracker) ================= */
+
+  /* ---- Sheet-like keyboard (Classes + Scores) + short bottom toast ---- */
+  const sheetClip = { text: "" };
+  const sheetUndo = [];
+  const sheetRedo = [];
+  const pushUndo = (fn) => { sheetUndo.push(fn); if (sheetUndo.length > 40) sheetUndo.shift(); sheetRedo.length = 0; };
+
+  const bindSheetKeys = (root) => {
+    if (!root || root.dataset.sheetKeys === "1") return;
+    root.dataset.sheetKeys = "1";
+    root.addEventListener("keydown", (e) => {
+      const t = e.target;
+      if (!t) return;
+      const isInput = t.matches && (t.matches("input, textarea, select") || t.isContentEditable);
+      const isAtt = t.matches && t.matches('select[data-type="att"], select.att-sel, select[data-att]');
+      const isScore = t.matches && t.matches('input[data-type="num"], input.score-in, input[data-k]');
+      if (!isInput && !isAtt && !isScore) return;
+
+      const key = (e.key || "").toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (mod && key === "a") {
+        if (t.select) { e.preventDefault(); try { t.select(); } catch (err) {} flash("Select all"); }
+        return;
+      }
+      if (mod && key === "c") {
+        e.preventDefault();
+        const val = isAtt ? (t.value || "") : (t.value != null ? String(t.value) : (window.getSelection() + ""));
+        sheetClip.text = val;
+        try { navigator.clipboard.writeText(val); } catch (err) {}
+        flash("Copied");
+        return;
+      }
+      if (mod && key === "v") {
+        e.preventDefault();
+        const paste = async () => {
+          let text = sheetClip.text;
+          try { text = await navigator.clipboard.readText(); } catch (err) {}
+          if (text == null) return;
+          const prev = isAtt ? t.value : t.value;
+          if (isAtt) {
+            const opt = [...t.options].find(o => o.value.toLowerCase() === text.trim().toLowerCase() || o.text.toLowerCase() === text.trim().toLowerCase());
+            if (opt) t.value = opt.value;
+            else return flash("Nothing to paste");
+          } else {
+            t.value = text.trim();
+          }
+          pushUndo(() => { t.value = prev; t.dispatchEvent(new Event("change", { bubbles: true })); });
+          t.dispatchEvent(new Event("input", { bubbles: true }));
+          t.dispatchEvent(new Event("change", { bubbles: true }));
+          flash("Pasted");
+        };
+        paste();
+        return;
+      }
+      if (mod && key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        const fn = sheetUndo.pop();
+        if (!fn) { flash("Nothing to undo"); return; }
+        const cur = isAtt || isScore ? () => {
+          const v = t.value;
+          fn();
+          sheetRedo.push(() => { t.value = v; t.dispatchEvent(new Event("change", { bubbles: true })); });
+        } : fn;
+        try { cur(); } catch (err) { try { fn(); } catch (e2) {} }
+        flash("Undo");
+        return;
+      }
+      if (mod && (key === "y" || (key === "z" && e.shiftKey))) {
+        e.preventDefault();
+        const fn = sheetRedo.pop();
+        if (!fn) { flash("Nothing to redo"); return; }
+        try { fn(); } catch (err) {}
+        flash("Redo");
+        return;
+      }
+      if ((key === "backspace" || key === "delete") && isAtt) {
+        e.preventDefault();
+        const prev = t.value;
+        if (!prev) return;
+        pushUndo(() => { t.value = prev; t.dispatchEvent(new Event("change", { bubbles: true })); });
+        t.value = "";
+        t.dispatchEvent(new Event("change", { bubbles: true }));
+        flash("Cleared");
+      }
+    });
+  };
+
   const ATT_STATES = ["Punctual", "Late", "Absent"];
 
   const renderClasses = async (data, head) => {
     const month = state.monthTab || Api.NCM_TABS.trackers[0];
-    state.trackerCache = state.trackerCache || {};
 
-    let rows = state.trackerCache[month] || null;
-    const hadCache = !!(rows && rows.length);
-    if (!hadCache) {
-      els.content.innerHTML = `
-        ${head("Classes & attendance", VIEWS.classes.bn)}
-        <div class="loading"><span class="spinner"></span>Loading tracker\u2026</div>
-      `;
-      rows = await Api.getNcmTracker(month);
-    }
+    els.content.innerHTML = `
+      ${head("Classes & attendance", VIEWS.classes.bn)}
+      <div class="loading"><span class="spinner"></span>Loading tracker\u2026</div>
+    `;
+
+    const rows = await Api.getNcmTracker(month);
     state.tracker = rows;
-    state.trackerCache[month] = rows;
-    if (hadCache) {
-      Api.getNcmTracker(month, false).then((fresh) => {
-        if (!fresh || !fresh.length) return;
-        state.trackerCache[month] = fresh;
-        state.tracker = fresh;
-        if (state.view !== "classes") return;
-        const ae = document.activeElement;
-        if (ae && (ae.tagName === "SELECT" || ae.tagName === "INPUT")) return;
-        if ((state.monthTab || Api.NCM_TABS.trackers[0]) === month) {
-          renderClasses(data, head);
-        }
-      }).catch(() => {});
-    }
 
     // join the NCM Master File so the result card has email / mobile / facebook
     let master = state.master && state.master.length ? state.master : (Api.getNcmMasterCached?.() || []);
@@ -3387,6 +3414,8 @@ const App = (() => {
       state.monthTab = btn.dataset.month;
       renderClasses(state.data, head);
     });
+    bindSheetKeys(els.content);
+
     document.getElementById("clsRefresh")?.addEventListener("click", async () => {
       await Api.refreshCache();
       const fresh = await Api.getNcmTracker(state.monthTab);
@@ -3394,98 +3423,6 @@ const App = (() => {
       renderClasses(state.data, head);
       toast("Tracker reloaded", "success");
     });
-
-    /* Sheet-like undo / copy / paste for tracker cells */
-    state.trackerUndo = state.trackerUndo || [];
-    state.trackerRedo = state.trackerRedo || [];
-    state.trackerClip = state.trackerClip || "";
-
-    const applyCellLocal = (cell, value, pushUndo) => {
-      if (!cell) return;
-      const prev = cell.value;
-      if (pushUndo && prev !== String(value ?? "")) {
-        state.trackerUndo.push({ cell, prev, next: value });
-        if (state.trackerUndo.length > 80) state.trackerUndo.shift();
-        state.trackerRedo = [];
-      }
-      cell.value = value == null ? "" : value;
-      cell.dispatchEvent(new Event("change", { bubbles: true }));
-    };
-
-    if (!window.__mpmTrackerKeys) {
-      window.__mpmTrackerKeys = true;
-      document.addEventListener("keydown", (e) => {
-        const t = e.target;
-        if (!t || !t.closest) return;
-        const inClasses = state.view === "classes" && t.closest("#trackerBody");
-        const inScores = state.view === "scores" && (t.classList.contains("score-in") || t.closest("#scoreBody"));
-        if (!inClasses && !inScores) return;
-        const cell = inClasses
-          ? (t.closest("[data-cell]") || (t.matches && t.matches("[data-cell]") ? t : null))
-          : (t.classList.contains("score-in") ? t : t.closest(".score-in"));
-        if (!cell) return;
-        const mod = e.ctrlKey || e.metaKey;
-        state.trackerUndo = state.trackerUndo || [];
-        state.trackerRedo = state.trackerRedo || [];
-        if (mod && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
-          e.preventDefault();
-          const u = state.trackerUndo.pop();
-          if (!u) return;
-          state.trackerRedo.push(u);
-          u.cell.value = u.prev;
-          u.cell.dispatchEvent(new Event(inScores ? "input" : "change", { bubbles: true }));
-          if (inScores) u.cell.dispatchEvent(new Event("change", { bubbles: true }));
-          return;
-        }
-        if (mod && ((e.key === "y" || e.key === "Y") || (e.shiftKey && (e.key === "z" || e.key === "Z")))) {
-          e.preventDefault();
-          const r = state.trackerRedo.pop();
-          if (!r) return;
-          state.trackerUndo.push(r);
-          r.cell.value = r.next;
-          r.cell.dispatchEvent(new Event(inScores ? "input" : "change", { bubbles: true }));
-          if (inScores) r.cell.dispatchEvent(new Event("change", { bubbles: true }));
-          return;
-        }
-        if (mod && (e.key === "c" || e.key === "C")) {
-          state.trackerClip = cell.value;
-          try { navigator.clipboard.writeText(cell.value || ""); } catch (err) {}
-          return;
-        }
-        if (mod && (e.key === "v" || e.key === "V")) {
-          e.preventDefault();
-          let paste = state.trackerClip;
-          try {
-            /* prefer system clipboard when available */
-          } catch (err) {}
-          if (inClasses && cell.dataset.type === "att") {
-            const ok = ["", "Punctual", "Late", "Absent"];
-            const hit = ok.find(x => x.toLowerCase() === String(paste || "").toLowerCase());
-            applyCellLocal(cell, hit != null ? hit : cell.value, true);
-          } else {
-            const prev = cell.value;
-            cell.value = paste == null ? "" : paste;
-            state.trackerUndo.push({ cell, prev, next: cell.value });
-            state.trackerRedo = [];
-            cell.dispatchEvent(new Event("input", { bubbles: true }));
-            cell.dispatchEvent(new Event("change", { bubbles: true }));
-          }
-          return;
-        }
-        if (mod && (e.key === "a" || e.key === "A")) {
-          if (cell.tagName === "INPUT") {
-            e.preventDefault();
-            cell.select();
-          }
-          return;
-        }
-        if ((e.key === "Backspace" || e.key === "Delete") && inClasses && cell.dataset.type === "att" && cell.tagName === "SELECT") {
-          e.preventDefault();
-          applyCellLocal(cell, "", true);
-          return;
-        }
-      });
-    }
 
     const bindTrackerEdits = (cs) => {
       document.querySelectorAll("#trackerBody [data-cell]").forEach(cell => {
@@ -3725,12 +3662,9 @@ const App = (() => {
           tag: "inbox",
           subject: m.subject || "(no subject)",
           preview: m.snippet || "",
-          body: m.body || m.snippet || "",
-          bodyLoaded: !!(m.body && String(m.body).trim()),
           time: m.date ? stamp(m.date) : "",
           unread: !!m.unread,
           threadId: m.threadId || "",
-          open: false,
         })) : [];
       } catch (e) {
         liveMails = [];
@@ -3804,19 +3738,15 @@ const App = (() => {
       }
 
       el.innerHTML = items.map((m, i) => `
-        <article class="ml-item ${m.unread ? "unread" : ""} ${m.open ? "open" : ""}" data-idx="${i}">
-          <div class="ml-avatar ${m.unread ? "" : "dim"}">${escapeHtml((m.from || "?").charAt(0).toUpperCase())}</div>
+        <article class="ml-item ${m.unread ? "unread" : ""}">
+          <div class="ml-avatar ${m.unread ? "" : "dim"}">${escapeHtml(m.from.charAt(0).toUpperCase())}</div>
           <div class="ml-body">
             <div class="ml-row1">
               <span class="ml-from">${escapeHtml(m.from)}</span>
-              <span class="ml-tag ${escapeHtml(m.tag || "inbox")}">${escapeHtml(m.tag || "inbox")}</span>
+              <span class="ml-tag ${m.tag}">${escapeHtml(m.tag)}</span>
             </div>
             <div class="ml-subject">${escapeHtml(m.subject)}</div>
-            <div class="ml-preview">${escapeHtml(m.preview || "")}</div>
-            ${m.open ? `<div class="ml-fullbody" style="margin-top:10px;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13px;line-height:1.65;color:#334155;white-space:pre-wrap;">${escapeHtml(m.body || m.preview || "(no body text)")}</div>
-            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-              <button type="button" class="pm-chip-btn ghost ml-toggle-read" data-idx="${i}" style="font-size:12px;">${m.unread ? "Mark as read" : "Mark as unread"}</button>
-            </div>` : ""}
+            <div class="ml-preview">${escapeHtml(m.preview)}</div>
           </div>
           <div class="ml-meta">
             <span class="ml-time">${escapeHtml(m.time || "")}</span>
@@ -3840,61 +3770,20 @@ const App = (() => {
       paint();
     });
 
-    /* click row → expand/collapse body; buttons control read state */
+    /* opening the inbox means the mails have been seen — mark them read */
     document.getElementById("mailItems")?.addEventListener("click", (e) => {
-      const toggleBtn = e.target.closest(".ml-toggle-read");
-      if (toggleBtn) {
-        e.stopPropagation();
-        const idx = parseInt(toggleBtn.dataset.idx, 10);
-        const list = mailList();
-        const m = list[idx];
-        if (!m) return;
-        m.unread = !m.unread;
-        if (backend && m.threadId && !m.unread) {
-          Api.markMailRead(m.threadId).catch(() => {});
-        }
-        loadMailBadge();
-        paint();
-        return;
-      }
       const item = e.target.closest(".ml-item");
       if (!item) return;
-      const idx = parseInt(item.dataset.idx, 10);
+      const idx = Array.from(item.parentElement.children).indexOf(item);
       const list = mailList();
       const m = list[idx];
-      if (!m) return;
-      /* collapse others, toggle this one */
-      list.forEach((x, i) => { if (i !== idx) x.open = false; });
-      m.open = !m.open;
-      /* opening marks as read */
-      if (m.open && m.unread) {
+      if (m) {
         m.unread = false;
+        /* tell Gmail too, so the badge is right on every device */
         if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
         loadMailBadge();
       }
       paint();
-      /* load full body from Gmail when expanded */
-      if (m.open && !m.bodyLoaded) {
-        const starter = (m.body && m.body !== "Loading…" ? m.body : "") || m.preview || "";
-        m.body = starter || "Loading…";
-        paint();
-        if (backend && m.threadId) {
-          Api.getMailBody(m.threadId).then((r) => {
-            m.bodyLoaded = true;
-            if (r && r.success && r.body) m.body = r.body;
-            else m.body = starter || (r && r.message ? ("Could not load body: " + r.message) : "(no body text)");
-            paint();
-          }).catch((e) => {
-            m.bodyLoaded = true;
-            m.body = starter || ("Could not load body: " + (e && e.message ? e.message : "error"));
-            paint();
-          });
-        } else {
-          m.bodyLoaded = true;
-          m.body = starter || "(no body text — connect backend)";
-          paint();
-        }
-      }
     });
 
     document.getElementById("mpSyncGmail")?.addEventListener("click", async () => {
@@ -4268,17 +4157,6 @@ const App = (() => {
         <span class="pm-sync-note">Sheet ↔ Portal</span>
       </div>
 
-      <!-- OTHERS bulk paste — shown only when Program = Others -->
-      <div id="pmOthersBox" style="display:none;margin:0 0 14px;padding:16px 18px;border-radius:14px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff 0%,#f0f9ff 100%);">
-        <div style="font-weight:700;font-size:14px;color:#312e81;margin-bottom:4px;">Others — paste any emails (bulk OK)</div>
-        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">One email per line, or comma / space separated. Example: a@gmail.com, b@yahoo.com</div>
-        <textarea id="pmOthersPaste" rows="4" placeholder="name1@gmail.com&#10;name2@gmail.com&#10;name3@gmail.com" style="width:100%;box-sizing:border-box;border:1.5px solid #c7d2fe;border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;resize:vertical;background:#fff;"></textarea>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button type="button" class="btn primary" id="pmOthersLoad" style="background:#059669;border-color:#059669;">✓ Load &amp; mark To Send</button>
-          <button type="button" class="btn" id="pmOthersClear">Clear</button>
-        </div>
-      </div>
-
       <div style="margin-bottom:12px;">
         <button class="pm-chip-btn ghost" id="pmNamePreview">👁 {{name}} preview</button>
       </div>
@@ -4569,44 +4447,8 @@ const App = (() => {
       });
     };
 
-    /* Always-on delivery-check rows (own mailboxes) */
-    const FIXED_EX_TOP = {
-      memberId: "NCM-101 (Example)",
-      name: "Md Sahabul Alam",
-      email: "sahabulota@gmail.com",
-      status: "",
-      sentAt: "",
-      _example: true,
-      _row: 0,
-    };
-    const FIXED_EX_BOT = {
-      memberId: "NCM-P2-0101002 (Example)",
-      name: "Md Ahsan",
-      email: "howladerahsan@gmail.com",
-      status: "",
-      sentAt: "",
-      _example: true,
-      _row: 0,
-    };
-    const withExamples = (list) => {
-      const mid = (list || []).filter(m => {
-        const id = String(m.memberId || "").toLowerCase();
-        const em = String(m.email || "").toLowerCase();
-        if (m._example) return false;
-        if (em === "sahabulota@gmail.com" || em === "howladerahsan@gmail.com") return false;
-        if (id.indexOf("example") !== -1) return false;
-        return true;
-      });
-      return [FIXED_EX_TOP, ...mid, FIXED_EX_BOT];
-    };
-    const showOthersBox = (on) => {
-      const box = document.getElementById("pmOthersBox");
-      if (box) box.style.display = on ? "block" : "none";
-    };
-
     const loadProgram = (p, force) => {
       program = p;
-      showOthersBox(p === "Others");
       if (!p) {
         members = [];
         decision = {};
@@ -4616,22 +4458,24 @@ const App = (() => {
         return;
       }
       if (p === "Others") {
-        /* keep any already-loaded bulk list; otherwise start empty */
-        if (!members.length || !members[0] || !String(members[0].memberId || "").startsWith("OTHER-")) {
-          members = [];
-          decision = {};
-        }
+        members = [];
+        decision = {};
         paintStats();
         paintTable();
         paintLastSent();
         return;
       }
       const list = (data[p] || []);
-      members = withExamples(list);
+      /* the two "own mailbox" rows are the delivery check:
+         the first one sits at the very top, the last one at the very
+         bottom, the real members stay in between */
+      const ex = (data._examples && data._examples[p]) || [];
+      const first = ex.length ? ex[0] : null;
+      const last = ex.length > 1 ? ex[ex.length - 1] : null;
+      const middle = ex.length ? ex.slice(1, ex.length - 1) : [];
+      members = [first, ...middle, ...list, last].filter(Boolean);
       decision = {};
-      members.forEach(m => {
-        decision[m.memberId] = (m.status || "").toLowerCase() === "sent" ? "Sent" : "Not Decided";
-      });
+      members.forEach(m => { decision[m.memberId] = m.status.toLowerCase() === "sent" ? "Sent" : "Not Decided"; });
       paintStats();
       paintTable();
       paintLastSent();
@@ -4639,68 +4483,19 @@ const App = (() => {
 
     document.getElementById("pmProgram").addEventListener("change", (e) => loadProgram(e.target.value));
 
-    /* Others — parse emails and mark To Send */
-    const parseEmails = (raw) => {
-      const parts = String(raw || "").split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
-      const seen = new Set();
-      const out = [];
-      for (const e of parts) {
-        const em = e.toLowerCase();
-        if (!/@/.test(em) || seen.has(em)) continue;
-        seen.add(em);
-        out.push(em);
-      }
-      return out;
-    };
-    document.getElementById("pmOthersLoad")?.addEventListener("click", () => {
-      const emails = parseEmails(document.getElementById("pmOthersPaste")?.value || "");
-      if (!emails.length) { toast("Paste at least one valid email", "error"); return; }
-      members = emails.map((email, i) => ({
-        memberId: "OTHER-" + String(i + 1).padStart(3, "0"),
-        name: email.split("@")[0],
-        email,
-        status: "",
-        sentAt: "",
-        _row: i + 1,
-        _example: false,
-      }));
-      decision = {};
-      members.forEach(m => { decision[m.memberId] = "To Send"; });
-      program = "Others";
-      const sel = document.getElementById("pmProgram");
-      if (sel) sel.value = "Others";
-      showOthersBox(true);
-      paintStats();
-      paintTable();
-      paintLastSent();
-      toast(members.length + " email(s) loaded & marked To Send", "success");
-    });
-    document.getElementById("pmOthersClear")?.addEventListener("click", () => {
-      const ta = document.getElementById("pmOthersPaste");
-      if (ta) ta.value = "";
-      members = [];
-      decision = {};
-      paintStats();
-      paintTable();
-      paintLastSent();
-      toast("Cleared", "success");
-    });
-
     document.getElementById("pmRefresh").addEventListener("click", async () => {
       await Api.refreshCache();
       const fresh = await Api.getMembers(true);
       state.data = fresh;
       const p = document.getElementById("pmProgram").value;
-      data = fresh;
-      if (p === "Others") {
-        paintStats(); paintTable(); paintLastSent();
-        toast("Sheet reloaded", "success");
-        return;
-      }
       const list = fresh[p] || [];
-      members = withExamples(list);
+      const ex = (fresh._examples && fresh._examples[p]) || [];
+      const first = ex.length ? ex[0] : null;
+      const last = ex.length > 1 ? ex[ex.length - 1] : null;
+      const middle = ex.length ? ex.slice(1, ex.length - 1) : [];
+      members = [first, ...middle, ...list, last].filter(Boolean);
       decision = {};
-      members.forEach(m => { decision[m.memberId] = (m.status || "").toLowerCase() === "sent" ? "Sent" : "Not Decided"; });
+      members.forEach(m => { decision[m.memberId] = m.status.toLowerCase() === "sent" ? "Sent" : "Not Decided"; });
       paintStats(); paintTable(); paintLastSent();
       toast("Sheet reloaded", "success");
     });
@@ -4811,15 +4606,8 @@ const App = (() => {
       const lang = document.getElementById("pmSendLang")?.value || "en";
       const subject = (document.getElementById("pmSubject")?.value || "").trim();
       const editor = document.getElementById(lang === "bn" ? "pmBodyBn" : "pmBodyEn");
-      let html = (editor && editor.innerHTML || "").trim();
-      const sample = members[0] || FIXED_EX_TOP;
-      if (html) {
-        html = html
-          .replace(/\{\{name\}\}/gi, sample.name || "")
-          .replace(/\{\{memberId\}\}/gi, sample.memberId || "")
-          .replace(/\{\{member id\}\}/gi, sample.memberId || "")
-          .replace(/\{\{email\}\}/gi, sample.email || "");
-      }
+      const html = (editor && editor.innerHTML || "").trim();
+
       const sEl = document.getElementById("pmLpSubject");
       if (sEl) sEl.textContent = subject || "—";
       const lEl = document.getElementById("pmLpLang");
@@ -4838,12 +4626,17 @@ const App = (() => {
       if (!el) return;
       el.addEventListener("input", paintMailPreview);
       el.addEventListener("keyup", paintMailPreview);
-      el.addEventListener("blur", paintMailPreview);
       el.addEventListener("paste", () => setTimeout(paintMailPreview, 0));
+      el.addEventListener("blur", paintMailPreview);
       try {
         const mo = new MutationObserver(() => paintMailPreview());
         mo.observe(el, { childList: true, subtree: true, characterData: true });
       } catch (e) {}
+    });
+    /* toolbar buttons (bold/size/color) also change the body */
+    document.querySelectorAll(".pm-toolbar button, .pm-toolbar select, .pm-toolbar input").forEach((b) => {
+      b.addEventListener("click", () => setTimeout(paintMailPreview, 30));
+      b.addEventListener("change", () => setTimeout(paintMailPreview, 30));
     });
     paintMailPreview();
 
@@ -4891,7 +4684,17 @@ const App = (() => {
     });
 
     // send
-    const doSendMails = async (subject, body, recipients) => {
+    document.getElementById("pmSend").addEventListener("click", async () => {
+      if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
+      const subject = document.getElementById("pmSubject").value.trim();
+      const lang = document.getElementById("pmSendLang").value;
+      const body = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML.trim();
+      if (!subject || !body) { toast("Subject & message required", "error"); return; }
+      const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
+        rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
+      }));
+      if (!recipients.length) { toast("No one marked “To Send”", "error"); return; }
+
       const wrap = document.getElementById("pmProgressWrap");
       const fill = document.getElementById("pmProgressFill");
       const txt = document.getElementById("pmProgressText");
@@ -4899,6 +4702,7 @@ const App = (() => {
       document.getElementById("pmStop").style.display = "inline-flex";
       document.getElementById("pmSendStatus").textContent = "Sending…";
       fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
+
       try {
         const r = await Api.sendMail({ program, subject, bodyHtml: body, recipients });
         fill.style.width = "100%";
@@ -4912,69 +4716,6 @@ const App = (() => {
       } finally {
         document.getElementById("pmStop").style.display = "none";
       }
-    };
-
-    /** 3-step confirm: dialog → Wait 2… → Send now */
-    const confirmSendFlow = (n) => new Promise((resolve) => {
-      const overlay = document.createElement("div");
-      overlay.className = "modal-overlay";
-      overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:9999;";
-      overlay.innerHTML = `
-        <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.18);">
-          <div style="font-size:18px;font-weight:700;color:#1e1b4b;margin-bottom:8px;">Confirm send</div>
-          <div style="font-size:13.5px;color:#475569;line-height:1.55;margin-bottom:6px;">
-            Mail will go to <b>${n}</b> member(s) marked To Send.
-          </div>
-          <div style="font-size:12.5px;color:#94a3b8;margin-bottom:18px;">Already-sent emails cannot be recalled.</div>
-          <div id="pmConfirmCount" style="font-size:28px;font-weight:800;color:#6d28d9;min-height:36px;margin-bottom:16px;">3</div>
-          <div style="display:flex;gap:10px;justify-content:center;">
-            <button type="button" id="pmConfirmCancel" style="padding:10px 18px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-weight:600;cursor:pointer;">Cancel</button>
-            <button type="button" id="pmConfirmGo" disabled style="padding:10px 18px;border-radius:10px;border:none;background:#c4b5fd;color:#fff;font-weight:700;cursor:not-allowed;">Wait 3…</button>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-      let nLeft = 3;
-      let timer = null;
-      const done = (ok) => {
-        if (timer) clearInterval(timer);
-        overlay.remove();
-        resolve(ok);
-      };
-      overlay.querySelector("#pmConfirmCancel").onclick = () => done(false);
-      const go = overlay.querySelector("#pmConfirmGo");
-      const countEl = overlay.querySelector("#pmConfirmCount");
-      timer = setInterval(() => {
-        nLeft -= 1;
-        if (nLeft > 0) {
-          countEl.textContent = String(nLeft);
-          go.textContent = "Wait " + nLeft + "…";
-        } else {
-          clearInterval(timer);
-          timer = null;
-          countEl.innerHTML = "✓";
-          go.disabled = false;
-          go.textContent = "Send now";
-          go.style.background = "#059669";
-          go.style.cursor = "pointer";
-        }
-      }, 1000);
-      go.onclick = () => { if (!go.disabled) done(true); };
-    });
-
-    document.getElementById("pmSend").addEventListener("click", async () => {
-      if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
-      const subject = document.getElementById("pmSubject").value.trim();
-      const lang = document.getElementById("pmSendLang").value;
-      const body = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML.trim();
-      if (!subject || !body) { toast("Subject & message required", "error"); return; }
-      const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
-        rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
-      }));
-      if (!recipients.length) { toast("No one marked “To Send”", "error"); return; }
-
-      const ok = await confirmSendFlow(recipients.length);
-      if (!ok) return;
-      await doSendMails(subject, body, recipients);
     });
     document.getElementById("pmStop").addEventListener("click", () => {
       document.getElementById("pmSendStatus").textContent = "Stopped.";
@@ -5004,10 +4745,12 @@ const App = (() => {
     }
     document.getElementById("pmWatcher").textContent = new Date().toLocaleString("en-GB");
 
-    /* Default stays on "— Select Program —" so the user chooses intentionally */
+    /* start on the first program that actually has members, so the table
+       is never empty when the page opens */
+    const firstWithMembers = ["NCM PART-1", "NCM PART-2"].find((p) => (data[p] || []).length);
     const sel = document.getElementById("pmProgram");
-    if (sel) sel.value = "";
-    loadProgram("");
+    if (sel && firstWithMembers) sel.value = firstWithMembers;
+    loadProgram(sel && sel.value ? sel.value : "");
   };
 
   const renderComingSoon = (title, head) => {
@@ -5164,17 +4907,22 @@ const App = (() => {
 
   const escapeHtml = (s) => window.escapeHtml(s);
 
-  const toast = (msg, kind) => {
+  const toast = (msg, kind, ms) => {
     // errors surface in the middle of the screen so they are impossible to miss
     if (kind === "error") {
       Notify.show({ message: msg, kind: "error" });
       return;
     }
+    if (!els.toast) return;
     els.toast.textContent = msg;
     els.toast.className = "toast show " + (kind || "");
     clearTimeout(window.__toastT);
-    window.__toastT = setTimeout(() => { els.toast.classList.remove("show"); }, 2800);
+    const dur = typeof ms === "number" ? ms : 2800;
+    window.__toastT = setTimeout(() => { els.toast.classList.remove("show"); }, dur);
   };
+
+  /** Short non-blocking hint at the bottom (keyboard / quick actions) */
+  const flash = (msg) => toast(msg, "success", 1600);
 
   const exportCSV = () => {
     if (!state.data) { toast("Loading data first…", "error"); return; }
