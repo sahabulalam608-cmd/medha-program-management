@@ -4068,6 +4068,17 @@ const App = (() => {
         <span class="pm-sync-note">Sheet ↔ Portal</span>
       </div>
 
+      <!-- OTHERS bulk paste — shown only when Program = Others -->
+      <div id="pmOthersBox" style="display:none;margin:0 0 14px;padding:16px 18px;border-radius:14px;border:1.5px solid #c7d2fe;background:linear-gradient(135deg,#eef2ff 0%,#f0f9ff 100%);">
+        <div style="font-weight:700;font-size:14px;color:#312e81;margin-bottom:4px;">Others — paste any emails (bulk OK)</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">One email per line, or comma / space separated. Example: a@gmail.com, b@yahoo.com</div>
+        <textarea id="pmOthersPaste" rows="4" placeholder="name1@gmail.com&#10;name2@gmail.com&#10;name3@gmail.com" style="width:100%;box-sizing:border-box;border:1.5px solid #c7d2fe;border-radius:10px;padding:10px 12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;resize:vertical;background:#fff;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button type="button" class="btn primary" id="pmOthersLoad" style="background:#059669;border-color:#059669;">✓ Load &amp; mark To Send</button>
+          <button type="button" class="btn" id="pmOthersClear">Clear</button>
+        </div>
+      </div>
+
       <div style="margin-bottom:12px;">
         <button class="pm-chip-btn ghost" id="pmNamePreview">👁 {{name}} preview</button>
       </div>
@@ -4358,8 +4369,44 @@ const App = (() => {
       });
     };
 
+    /* Always-on delivery-check rows (own mailboxes) */
+    const FIXED_EX_TOP = {
+      memberId: "NCM-101 (Example)",
+      name: "Md Sahabul Alam",
+      email: "sahabulota@gmail.com",
+      status: "",
+      sentAt: "",
+      _example: true,
+      _row: 0,
+    };
+    const FIXED_EX_BOT = {
+      memberId: "NCM-P2-0101002 (Example)",
+      name: "Md Ahsan",
+      email: "howladerahsan@gmail.com",
+      status: "",
+      sentAt: "",
+      _example: true,
+      _row: 0,
+    };
+    const withExamples = (list) => {
+      const mid = (list || []).filter(m => {
+        const id = String(m.memberId || "").toLowerCase();
+        const em = String(m.email || "").toLowerCase();
+        if (m._example) return false;
+        if (em === "sahabulota@gmail.com" || em === "howladerahsan@gmail.com") return false;
+        if (id.indexOf("example") !== -1) return false;
+        return true;
+      });
+      return [FIXED_EX_TOP, ...mid, FIXED_EX_BOT];
+    };
+    const showOthersBox = (on) => {
+      const box = document.getElementById("pmOthersBox");
+      if (box) box.style.display = on ? "block" : "none";
+    };
+
     const loadProgram = (p, force) => {
       program = p;
+      showOthersBox(p === "Others");
       if (!p) {
         members = [];
         decision = {};
@@ -4369,24 +4416,22 @@ const App = (() => {
         return;
       }
       if (p === "Others") {
-        members = [];
-        decision = {};
+        /* keep any already-loaded bulk list; otherwise start empty */
+        if (!members.length || !members[0] || !String(members[0].memberId || "").startsWith("OTHER-")) {
+          members = [];
+          decision = {};
+        }
         paintStats();
         paintTable();
         paintLastSent();
         return;
       }
       const list = (data[p] || []);
-      /* the two "own mailbox" rows are the delivery check:
-         the first one sits at the very top, the last one at the very
-         bottom, the real members stay in between */
-      const ex = (data._examples && data._examples[p]) || [];
-      const first = ex.length ? ex[0] : null;
-      const last = ex.length > 1 ? ex[ex.length - 1] : null;
-      const middle = ex.length ? ex.slice(1, ex.length - 1) : [];
-      members = [first, ...middle, ...list, last].filter(Boolean);
+      members = withExamples(list);
       decision = {};
-      members.forEach(m => { decision[m.memberId] = m.status.toLowerCase() === "sent" ? "Sent" : "Not Decided"; });
+      members.forEach(m => {
+        decision[m.memberId] = (m.status || "").toLowerCase() === "sent" ? "Sent" : "Not Decided";
+      });
       paintStats();
       paintTable();
       paintLastSent();
@@ -4394,19 +4439,68 @@ const App = (() => {
 
     document.getElementById("pmProgram").addEventListener("change", (e) => loadProgram(e.target.value));
 
+    /* Others — parse emails and mark To Send */
+    const parseEmails = (raw) => {
+      const parts = String(raw || "").split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+      const seen = new Set();
+      const out = [];
+      for (const e of parts) {
+        const em = e.toLowerCase();
+        if (!/@/.test(em) || seen.has(em)) continue;
+        seen.add(em);
+        out.push(em);
+      }
+      return out;
+    };
+    document.getElementById("pmOthersLoad")?.addEventListener("click", () => {
+      const emails = parseEmails(document.getElementById("pmOthersPaste")?.value || "");
+      if (!emails.length) { toast("Paste at least one valid email", "error"); return; }
+      members = emails.map((email, i) => ({
+        memberId: "OTHER-" + String(i + 1).padStart(3, "0"),
+        name: email.split("@")[0],
+        email,
+        status: "",
+        sentAt: "",
+        _row: i + 1,
+        _example: false,
+      }));
+      decision = {};
+      members.forEach(m => { decision[m.memberId] = "To Send"; });
+      program = "Others";
+      const sel = document.getElementById("pmProgram");
+      if (sel) sel.value = "Others";
+      showOthersBox(true);
+      paintStats();
+      paintTable();
+      paintLastSent();
+      toast(members.length + " email(s) loaded & marked To Send", "success");
+    });
+    document.getElementById("pmOthersClear")?.addEventListener("click", () => {
+      const ta = document.getElementById("pmOthersPaste");
+      if (ta) ta.value = "";
+      members = [];
+      decision = {};
+      paintStats();
+      paintTable();
+      paintLastSent();
+      toast("Cleared", "success");
+    });
+
     document.getElementById("pmRefresh").addEventListener("click", async () => {
       await Api.refreshCache();
       const fresh = await Api.getMembers(true);
       state.data = fresh;
       const p = document.getElementById("pmProgram").value;
+      data = fresh;
+      if (p === "Others") {
+        paintStats(); paintTable(); paintLastSent();
+        toast("Sheet reloaded", "success");
+        return;
+      }
       const list = fresh[p] || [];
-      const ex = (fresh._examples && fresh._examples[p]) || [];
-      const first = ex.length ? ex[0] : null;
-      const last = ex.length > 1 ? ex[ex.length - 1] : null;
-      const middle = ex.length ? ex.slice(1, ex.length - 1) : [];
-      members = [first, ...middle, ...list, last].filter(Boolean);
+      members = withExamples(list);
       decision = {};
-      members.forEach(m => { decision[m.memberId] = m.status.toLowerCase() === "sent" ? "Sent" : "Not Decided"; });
+      members.forEach(m => { decision[m.memberId] = (m.status || "").toLowerCase() === "sent" ? "Sent" : "Not Decided"; });
       paintStats(); paintTable(); paintLastSent();
       toast("Sheet reloaded", "success");
     });
@@ -4517,8 +4611,15 @@ const App = (() => {
       const lang = document.getElementById("pmSendLang")?.value || "en";
       const subject = (document.getElementById("pmSubject")?.value || "").trim();
       const editor = document.getElementById(lang === "bn" ? "pmBodyBn" : "pmBodyEn");
-      const html = (editor && editor.innerHTML || "").trim();
-
+      let html = (editor && editor.innerHTML || "").trim();
+      const sample = members[0] || FIXED_EX_TOP;
+      if (html) {
+        html = html
+          .replace(/\{\{name\}\}/gi, sample.name || "")
+          .replace(/\{\{memberId\}\}/gi, sample.memberId || "")
+          .replace(/\{\{member id\}\}/gi, sample.memberId || "")
+          .replace(/\{\{email\}\}/gi, sample.email || "");
+      }
       const sEl = document.getElementById("pmLpSubject");
       if (sEl) sEl.textContent = subject || "—";
       const lEl = document.getElementById("pmLpLang");
@@ -4536,7 +4637,13 @@ const App = (() => {
       const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener("input", paintMailPreview);
+      el.addEventListener("keyup", paintMailPreview);
       el.addEventListener("blur", paintMailPreview);
+      el.addEventListener("paste", () => setTimeout(paintMailPreview, 0));
+      try {
+        const mo = new MutationObserver(() => paintMailPreview());
+        mo.observe(el, { childList: true, subtree: true, characterData: true });
+      } catch (e) {}
     });
     paintMailPreview();
 
@@ -4584,17 +4691,7 @@ const App = (() => {
     });
 
     // send
-    document.getElementById("pmSend").addEventListener("click", async () => {
-      if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
-      const subject = document.getElementById("pmSubject").value.trim();
-      const lang = document.getElementById("pmSendLang").value;
-      const body = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML.trim();
-      if (!subject || !body) { toast("Subject & message required", "error"); return; }
-      const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
-        rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
-      }));
-      if (!recipients.length) { toast("No one marked “To Send”", "error"); return; }
-
+    const doSendMails = async (subject, body, recipients) => {
       const wrap = document.getElementById("pmProgressWrap");
       const fill = document.getElementById("pmProgressFill");
       const txt = document.getElementById("pmProgressText");
@@ -4602,7 +4699,6 @@ const App = (() => {
       document.getElementById("pmStop").style.display = "inline-flex";
       document.getElementById("pmSendStatus").textContent = "Sending…";
       fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
-
       try {
         const r = await Api.sendMail({ program, subject, bodyHtml: body, recipients });
         fill.style.width = "100%";
@@ -4616,6 +4712,69 @@ const App = (() => {
       } finally {
         document.getElementById("pmStop").style.display = "none";
       }
+    };
+
+    /** 3-step confirm: dialog → Wait 2… → Send now */
+    const confirmSendFlow = (n) => new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:9999;";
+      overlay.innerHTML = `
+        <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.18);">
+          <div style="font-size:18px;font-weight:700;color:#1e1b4b;margin-bottom:8px;">Confirm send</div>
+          <div style="font-size:13.5px;color:#475569;line-height:1.55;margin-bottom:6px;">
+            Mail will go to <b>${n}</b> member(s) marked To Send.
+          </div>
+          <div style="font-size:12.5px;color:#94a3b8;margin-bottom:18px;">Already-sent emails cannot be recalled.</div>
+          <div id="pmConfirmCount" style="font-size:28px;font-weight:800;color:#6d28d9;min-height:36px;margin-bottom:16px;">3</div>
+          <div style="display:flex;gap:10px;justify-content:center;">
+            <button type="button" id="pmConfirmCancel" style="padding:10px 18px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-weight:600;cursor:pointer;">Cancel</button>
+            <button type="button" id="pmConfirmGo" disabled style="padding:10px 18px;border-radius:10px;border:none;background:#c4b5fd;color:#fff;font-weight:700;cursor:not-allowed;">Wait 3…</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      let nLeft = 3;
+      let timer = null;
+      const done = (ok) => {
+        if (timer) clearInterval(timer);
+        overlay.remove();
+        resolve(ok);
+      };
+      overlay.querySelector("#pmConfirmCancel").onclick = () => done(false);
+      const go = overlay.querySelector("#pmConfirmGo");
+      const countEl = overlay.querySelector("#pmConfirmCount");
+      timer = setInterval(() => {
+        nLeft -= 1;
+        if (nLeft > 0) {
+          countEl.textContent = String(nLeft);
+          go.textContent = "Wait " + nLeft + "…";
+        } else {
+          clearInterval(timer);
+          timer = null;
+          countEl.innerHTML = "✓";
+          go.disabled = false;
+          go.textContent = "Send now";
+          go.style.background = "#059669";
+          go.style.cursor = "pointer";
+        }
+      }, 1000);
+      go.onclick = () => { if (!go.disabled) done(true); };
+    });
+
+    document.getElementById("pmSend").addEventListener("click", async () => {
+      if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
+      const subject = document.getElementById("pmSubject").value.trim();
+      const lang = document.getElementById("pmSendLang").value;
+      const body = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML.trim();
+      if (!subject || !body) { toast("Subject & message required", "error"); return; }
+      const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
+        rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
+      }));
+      if (!recipients.length) { toast("No one marked “To Send”", "error"); return; }
+
+      const ok = await confirmSendFlow(recipients.length);
+      if (!ok) return;
+      await doSendMails(subject, body, recipients);
     });
     document.getElementById("pmStop").addEventListener("click", () => {
       document.getElementById("pmSendStatus").textContent = "Stopped.";
