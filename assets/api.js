@@ -499,7 +499,17 @@ const Api = (() => {
   const fetchBatch01 = async () => {
     const key = "sheet:batch01";
     const hit = cache.get(key);
-    if (hit && Date.now() - hit.t < CACHE_TTL) return hit.v;
+    if (hit && Date.now() - hit.t < CACHE_TTL && hit.v && hit.v.ok && hit.v.rows && hit.v.rows.some(r => r.phone || r.address || r.medhaEmail)) {
+      return hit.v;
+    }
+
+    /* CSV of Master File (gid 738811071) is the source of truth for PART-2 */
+    const csvFirst = await fetchBatch01Csv();
+    if (csvFirst.ok && csvFirst.rows && csvFirst.rows.length) {
+      batch01Cache = csvFirst;
+      cache.set(key, { v: csvFirst, t: Date.now() });
+      return csvFirst;
+    }
 
     /* the known tabs first (Master File leads), then anything new */
     let tabs = BATCH01_TABS.slice();
@@ -850,12 +860,22 @@ const Api = (() => {
     getMembers: async (force = false) => {
       if (force) { cache.clear(); try { localStorage.removeItem(LS_KEY); } catch (e) {} }
 
-      /* Whatever this browser already has is shown straight away — the page
-         must never wait for the network. The refresh happens behind it. */
       const cached = readLocalCache();
-      if (cached) {
-        backgroundRefresh();      // refresh in background — UI already painted
+      const p2ok = (data) => {
+        const p2 = (data && data["NCM PART-2"]) || [];
+        if (!p2.length) return false;
+        /* Master File enrichment present? */
+        const sample = p2.slice(0, 15);
+        return sample.some(m => m.phone || m.address || m.whatsapp || m.medhaEmail || m.tranId || m.courseMail);
+      };
+      if (cached && p2ok(cached) && !force) {
+        backgroundRefresh();
         return cached;
+      }
+      /* stale/incomplete cache — do not trust it for PART-2 profiles */
+      if (cached && !p2ok(cached)) {
+        try { localStorage.removeItem(LS_KEY); } catch (e) {}
+        cache.clear();
       }
 
       /* Cold start: one wait for the sheet, then it is cached for next time */

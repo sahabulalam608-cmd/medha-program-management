@@ -473,7 +473,20 @@ const App = (() => {
   const setHiddenPages = (list) => {
     try { localStorage.setItem(HIDDEN_PAGES_KEY, JSON.stringify(list)); } catch (e) {}
   };
-  const isPageHidden = (view) => getHiddenPages().indexOf(view) !== -1;
+  const isPageHidden = (view) => {
+    /* Files must always open — never treat it as a hidden page */
+    if (view === "files") return false;
+    return getHiddenPages().indexOf(view) !== -1;
+  };
+  /* one-time: Files was never meant to stay hidden */
+  try {
+    const h = JSON.parse(localStorage.getItem(typeof HIDDEN_PAGES_KEY !== "undefined" ? HIDDEN_PAGES_KEY : "mpm.hiddenPages") || "[]");
+    if (Array.isArray(h) && h.indexOf("files") !== -1) {
+      localStorage.setItem(typeof HIDDEN_PAGES_KEY !== "undefined" ? HIDDEN_PAGES_KEY : "mpm.hiddenPages",
+        JSON.stringify(h.filter(function (v) { return v !== "files"; })));
+    }
+  } catch (e) {}
+
   const applyHiddenPages = () => {
     /* Files must stay in the sidebar (between Support and Mail) */
     const hidden = getHiddenPages().filter(function (v) { return v !== "files"; });
@@ -2324,7 +2337,10 @@ const App = (() => {
             key: conf.key,
             name: conf.name,
             url: conf.url,
-            icon: ICONS.taka,
+            brand: conf.brand || "",
+            icon: conf.brand === "bkash"
+              ? '<img src="assets/img/bkash-logo.jpg" alt="bKash" width="40" height="40" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:#fff;" />'
+              : ICONS.taka,
             creds: [
               { label: conf.key === "bkash" ? "Email" : "Admin ID", value: cred.id },
               { label: "Password", value: cred.password },
@@ -2705,7 +2721,9 @@ const App = (() => {
       <div class="app-launcher">
         <div class="launch-card">
           <div class="launch-head">
-            <span class="launch-ico">${app.icon || ICONS.console}</span>
+            <span class="launch-ico">${app.brand === "bkash"
+              ? '<img src="assets/img/bkash-logo.jpg" alt="bKash" width="40" height="40" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:#fff;" />'
+              : (app.icon || ICONS.console)}</span>
             <div style="min-width:0;">
               <div class="launch-name">${escapeHtml(app.name)}</div>
               <div class="launch-url">${escapeHtml(app.url.replace(/^https?:\/\//, ""))}</div>
@@ -3747,6 +3765,8 @@ const App = (() => {
       catch (e) {}
     };
 
+    let paint = () => {}; /* filled below — avoids TDZ if loadLiveMails runs early */
+
     const loadLiveMails = async (opts) => {
       opts = opts || {};
       if (!backend) { paint(); return; }
@@ -3770,10 +3790,8 @@ const App = (() => {
       mailSyncing = false;
       paint();
     };
-    if (backend) loadLiveMails();
-    else paint();
 
-    const paint = () => {
+    paint = () => {
       const q = currentSearch.toLowerCase();
       const unread = unreadCount();
 
@@ -3863,6 +3881,10 @@ const App = (() => {
       currentBox = btn.dataset.box;
       paint();
     });
+
+    /* start inbox load only after paint exists */
+    if (backend) loadLiveMails();
+    else paint();
 
     document.getElementById("mailSearch")?.addEventListener("input", (e) => {
       currentSearch = e.target.value;
