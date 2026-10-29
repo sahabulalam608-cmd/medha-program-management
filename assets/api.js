@@ -52,7 +52,7 @@ const TRACKER_GROUPS = [
 
 const Api = (() => {
   const cache = new Map();
-  const CACHE_TTL = 30_000;  // 30s — so sheet edits show up quickly
+  const CACHE_TTL = 3_000;  // 3s memory TTL — localStorage keeps last full snapshot
 
   const getConfig = () => {
     try {
@@ -526,46 +526,21 @@ const Api = (() => {
 
   const fetchAllMembers = async () => {
     try {
-      /* The two program tabs are the fast path. The Batch-01 Master sheet is
-         fetched separately so a slow or unreachable spreadsheet never holds
-         the page up — the list swaps in the moment it arrives. */
-      const [p1, p2old] = await Promise.all([
+      const [p1, p2old, b01] = await Promise.all([
         fetchSheet("Members NCM-P1"),
         fetchSheet("Members NCM-P2"),
+        fetchBatch01(),
       ]);
-
-      /* if we already know the Batch-01 list, use it straight away */
-      const known = batch01Cache && (batch01Cache.ok || Date.now() - batch01Cache.at < BATCH01_RETRY_MS)
-        ? batch01Cache : null;
-
-      if (known) {
-        const m = mergeBatch01(p2old, known);
-        const out = buildMemberSet(p1, m.p2, m.source, m.note, m.fromBatch01);
-        writeLocalCache(out);
-        return out;
-      }
-
-      /* not known yet — paint straight away with what we have; the Batch-01
-         list replaces the P2 list the moment it arrives, and the page never
-         waits for it */
-      const quick = buildMemberSet(p1, p2old, "Members NCM-P2", "", false);
-      quick._p2Pending = true;
-      writeLocalCache(quick);
-
-      fetchBatch01().then(b01 => {
-        const m = mergeBatch01(p2old, b01);
-        const out = buildMemberSet(p1, m.p2, m.source, m.note, m.fromBatch01);
-        out._p2Pending = false;
-        writeLocalCache(out);
-        try { if (typeof Api._freshCb === "function") Api._freshCb(out); } catch (e) {}
-      }).catch(() => {});
-
-      return quick;
+      /* NCM PART-2 profile fields always come from Batch-01 Master File (gid 738811071) */
+      const m = mergeBatch01(p2old, b01);
+      const out = buildMemberSet(p1, m.p2, m.source, m.note, m.fromBatch01);
+      out._p2Pending = false;
+      writeLocalCache(out);
+      return out;
     } catch (err) {
-      // graceful fallback to demo data so the UI is usable offline
       console.warn("Sheet fetch failed, using demo data:", err.message);
       const demo = demoDataset();
-      writeLocalCache(demo);   // cache it too → next load is instant
+      writeLocalCache(demo);
       return demo;
     }
   };
@@ -581,6 +556,19 @@ const Api = (() => {
   };
 
   /** Background refresh — never blocks the UI, notifies the app when fresh data lands */
+  const dataFingerprint = (data) => {
+    try {
+      const all = (data && data._all) || [];
+      const parts = all.map(m =>
+        [m.memberId, m.name, m.email, m.phone, m.whatsapp, m.address,
+         m.status, m.sentAt, m.medhaEmail, m.courseMail, m.tranId,
+         m.plan, m.team, m.facebook].join("|"));
+      return String(all.length) + ":" + parts.join(";");
+    } catch (e) { return String(Date.now()); }
+  };
+
+  let _lastFp = "";
+
   const backgroundRefresh = () => {
     if (backgroundRefresh._running) return;
     backgroundRefresh._running = true;
@@ -591,9 +579,29 @@ const Api = (() => {
       : fetchAllMembers();
     work.then(fresh => {
       backgroundRefresh._running = false;
+      if (!fresh) return;
       try { writeLocalCache(fresh); } catch (e) {}
-      try { if (typeof Api._freshCb === "function") Api._freshCb(fresh); } catch (e) {}
+      const fp = dataFingerprint(fresh);
+      if (fp !== _lastFp) {
+        _lastFp = fp;
+        try { if (typeof Api._freshCb === "function") Api._freshCb(fresh); } catch (e) {}
+      }
     }).catch(() => { backgroundRefresh._running = false; });
+  };
+
+  /** Keep sheet → site in sync every 3s without page reload */
+  const startAutoSync = (ms) => {
+    const every = typeof ms === "number" ? ms : 3000;
+    if (startAutoSync._timer) clearInterval(startAutoSync._timer);
+    /* first tick soon, then steady 3s */
+    setTimeout(() => { try { backgroundRefresh(); } catch (e) {} }, 1200);
+    startAutoSync._timer = setInterval(() => {
+      try { backgroundRefresh(); } catch (e) {}
+    }, every);
+  };
+  const stopAutoSync = () => {
+    if (startAutoSync._timer) clearInterval(startAutoSync._timer);
+    startAutoSync._timer = null;
   };
 
   const demoMembers = () => [
@@ -650,6 +658,8 @@ const Api = (() => {
       localStorage.setItem(LS_KEY, JSON.stringify({ at: Date.now(), data }));
     } catch (e) { /* quota — ignore */ }
   };
+  try { const _c = readLocalCache(); if (_c) _lastFp = dataFingerprint(_c); } catch (e) {}
+
 
   /* The NCM master list is needed by Payments, Members and the profile
      drawer. It is kept in this browser as well, so a tab opens instantly
@@ -774,6 +784,9 @@ const Api = (() => {
 
     /** Called by the app when the background refresh lands, to repaint. */
     onFreshData: (cb) => { Api._freshCb = cb; },
+    startAutoSync: (ms) => startAutoSync(ms),
+    stopAutoSync: () => stopAutoSync(),
+    backgroundRefresh: () => backgroundRefresh(),
 
     /* ---------- NCM Part-1 sheet (separate spreadsheet) ---------- */
 
@@ -1331,6 +1344,12 @@ const Api = (() => {
     },
 
     /** Mark one inbox mail as read (the user opened it) */
+    getMailBody: async (threadId) => {
+      if (!getBackendUrl() || !threadId) return { success: false, body: "" };
+      try { return await backendCall("getMailBody", { threadId }); }
+      catch { return { success: false, body: "" }; }
+    },
+
     markMailRead: async (threadId) => {
       if (!getBackendUrl() || !threadId) return { success: false };
       try { return await backendCall("markMailRead", { threadId }); }

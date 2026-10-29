@@ -466,7 +466,8 @@ const App = (() => {
   };
   const isPageHidden = (view) => getHiddenPages().indexOf(view) !== -1;
   const applyHiddenPages = () => {
-    const hidden = getHiddenPages();
+    /* Files must stay in the sidebar (between Support and Mail) */
+    const hidden = getHiddenPages().filter(function (v) { return v !== "files"; });
     document.querySelectorAll(".nav-item[data-view]").forEach(b => {
       const hide = hidden.indexOf(b.dataset.view) !== -1;
       b.hidden = hide;
@@ -836,6 +837,7 @@ const App = (() => {
       state.data = data;
       window.__mpmAll = data._all || [];
       render(view, data);
+      if (view === "classes" || view === "scores") bindSheetKeys(els.content);
       requestAnimationFrame(() => restoreScroll(view));
     };
 
@@ -1052,8 +1054,6 @@ const App = (() => {
           <option value="due">Unpaid / no record</option>
         </select>
         <button class="btn-ghost" id="refreshMembers" title="Force-fetch from Google Sheet">↻ Refresh</button>
-        <a class="panel-link" id="memSheetLink" href="#" target="_blank" rel="noopener"
-           title="Open the source Google Sheet in a new tab">Edit in sheet ↗</a>
         <span class="count" id="memCount"></span>
       </div>
 
@@ -2193,7 +2193,6 @@ const App = (() => {
           <option value="none">Not paid</option>
         </select>
         <button class="btn-ghost" id="payRefresh">\u21bb Refresh</button>
-        <a class="panel-link" data-sheet-link href="#" style="margin-left:6px;">Edit in sheet \u2197</a>
         <span class="count" id="payCount"></span>
       </div>
 
@@ -2283,6 +2282,16 @@ const App = (() => {
       defaults: { id: "admin", password: "3D1sdE*OvV%FvS7v" },
       note: "Sign in once here and the browser keeps you signed in. Everything you change in the console is saved there.",
     },
+    {
+      key: "bkash",
+      name: "bKash Merchant Portal",
+      tagline: "merchantportal.bkash.com — settlements, transactions, merchant tools",
+      url: "https://merchantportal.bkash.com/login",
+      credKey: "mpm.bkash.cred",
+      defaults: { id: "onlinetechacademybd@gmail.com", password: "MOjo@321@OTA" },
+      note: "Official bKash Merchant Portal. Sign in with the merchant email. Credentials stay in this browser only.",
+      brand: "bkash",
+    },
   ];
 
   const readCred = (conf) => {
@@ -2298,7 +2307,7 @@ const App = (() => {
 
   const renderPayAdmin = async (data, head) => {
     els.content.innerHTML = `
-      ${head("Payments admin", "Both Online Tech Academy payment consoles \u2014 inside the program portal")}
+      ${head("Payments admin", "OTA payment consoles + bKash Merchant Portal \u2014 inside the program portal")}
       <div class="console-grid">
         ${PAY_CONSOLES.map(conf => {
           const cred = readCred(conf);
@@ -2308,7 +2317,7 @@ const App = (() => {
             url: conf.url,
             icon: ICONS.taka,
             creds: [
-              { label: "Admin ID", value: cred.id },
+              { label: conf.key === "bkash" ? "Email" : "Admin ID", value: cred.id },
               { label: "Password", value: cred.password },
             ],
             saveCred: () => {
@@ -3283,7 +3292,8 @@ const App = (() => {
   const pushUndo = (fn) => { sheetUndo.push(fn); if (sheetUndo.length > 40) sheetUndo.shift(); sheetRedo.length = 0; };
 
   const bindSheetKeys = (root) => {
-    if (!root || root.dataset.sheetKeys === "1") return;
+    if (!root) return;
+    if (root.dataset.sheetKeys === "1") return;
     root.dataset.sheetKeys = "1";
     root.addEventListener("keydown", (e) => {
       const t = e.target;
@@ -3425,7 +3435,6 @@ const App = (() => {
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <span class="pm-status-line">Average total: <b>${avgTotal.toFixed(1)}</b>/100 across ${scored.length} scored</span>
             <button class="btn-ghost" id="clsRefresh">\u21bb Refresh</button>
-            <a class="panel-link" data-sheet-link href="#" style="margin-left:6px;">Edit in sheet \u2197</a>
           </div>
         </header>
 
@@ -3601,10 +3610,7 @@ const App = (() => {
         <button class="mail-tab" data-mtab="progmail" role="tab">
           <span class="mt-ico">${ICONS.send}</span> Program Mail
         </button>
-        <button class="mail-tab" data-mtab="files" role="tab">
-          <span class="mt-ico">${ICONS.folder}</span> Files
-        </button>
-        <span class="mail-tabs-note">Inbox · Program Mail · Files — all inside the portal.</span>
+        <span class="mail-tabs-note">Inbox · Program Mail — inside the portal.</span>
       </div>
 
       <div id="mailTabBody"></div>
@@ -3626,32 +3632,12 @@ const App = (() => {
     };
     const showProgMail = () => { body.innerHTML = progMailHtml(); wireProgMail(data); };
 
-    const showFilesTab = () => {
-      /* reuse the main Files page inside the mail workspace */
-      body.innerHTML = `<div id="mailFilesMount"></div>`;
-      const mount = document.getElementById("mailFilesMount");
-      const prev = els.content;
-      /* temporarily paint Files into the tab body */
-      const fakeHead = (title, sub) => `
-        <div class="page-head" style="margin-bottom:12px;">
-          <div>
-            <div class="page-kicker">Mail portal · Files</div>
-            <h1 class="page-title" style="font-size:1.35rem;">${title}</h1>
-            <p class="page-sub">${sub || ""}</p>
-          </div>
-        </div>`;
-      const holder = { innerHTML: "", querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {} };
-      /* simplest path: navigate to files view */
-      setView("files");
-    };
-
     document.getElementById("mailTabs").addEventListener("click", (e) => {
       const btn = e.target.closest(".mail-tab");
       if (!btn) return;
       document.querySelectorAll(".mail-tab").forEach(x => x.classList.remove("active"));
       btn.classList.add("active");
       if (btn.dataset.mtab === "progmail") showProgMail();
-      else if (btn.dataset.mtab === "files") showFilesTab();
       else showInbox();
     });
 
@@ -3841,15 +3827,16 @@ const App = (() => {
       }
 
       el.innerHTML = items.map((m, i) => `
-        <article class="ml-item ${m.unread ? "unread" : ""}">
-          <div class="ml-avatar ${m.unread ? "" : "dim"}">${escapeHtml(m.from.charAt(0).toUpperCase())}</div>
+        <article class="ml-item ${m.unread ? "unread" : ""}" data-mail-idx="${i}" data-thread="${escapeHtml(m.threadId || "")}">
+          <div class="ml-avatar ${m.unread ? "" : "dim"}">${escapeHtml((m.from || "?").charAt(0).toUpperCase())}</div>
           <div class="ml-body">
             <div class="ml-row1">
               <span class="ml-from">${escapeHtml(m.from)}</span>
               <span class="ml-tag ${m.tag}">${escapeHtml(m.tag)}</span>
             </div>
             <div class="ml-subject">${escapeHtml(m.subject)}</div>
-            <div class="ml-preview">${escapeHtml(m.preview)}</div>
+            <div class="ml-preview">${escapeHtml(m.preview || "")}</div>
+            <div class="ml-fullbody" hidden style="margin-top:10px;padding:12px 14px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;font-size:13px;line-height:1.65;white-space:pre-wrap;color:var(--text);">Loading body…</div>
           </div>
           <div class="ml-meta">
             <span class="ml-time">${escapeHtml(m.time || "")}</span>
@@ -3874,19 +3861,40 @@ const App = (() => {
     });
 
     /* opening the inbox means the mails have been seen — mark them read */
-    document.getElementById("mailItems")?.addEventListener("click", (e) => {
+    document.getElementById("mailItems")?.addEventListener("click", async (e) => {
       const item = e.target.closest(".ml-item");
       if (!item) return;
-      const idx = Array.from(item.parentElement.children).indexOf(item);
+      const idx = parseInt(item.getAttribute("data-mail-idx") || "-1", 10);
       const list = mailList();
       const m = list[idx];
-      if (m) {
-        m.unread = false;
-        /* tell Gmail too, so the badge is right on every device */
-        if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
-        loadMailBadge();
+      if (!m) return;
+      m.unread = false;
+      if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
+      loadMailBadge();
+      /* toggle body expand/collapse without full repaint */
+      const bodyEl = item.querySelector(".ml-fullbody");
+      if (!bodyEl) return;
+      const open = bodyEl.hasAttribute("hidden");
+      document.querySelectorAll("#mailItems .ml-fullbody").forEach((b) => b.setAttribute("hidden", ""));
+      if (!open) return; /* was open → collapsed all */
+      bodyEl.removeAttribute("hidden");
+      if (m.body) {
+        bodyEl.textContent = m.body;
+        return;
       }
-      paint();
+      bodyEl.textContent = "Loading body…";
+      if (backend && m.threadId && Api.getMailBody) {
+        try {
+          const r = await Api.getMailBody(m.threadId);
+          const text = (r && (r.body || r.message)) || m.preview || "(empty)";
+          m.body = text;
+          bodyEl.textContent = text;
+        } catch (err) {
+          bodyEl.textContent = m.preview || "Could not load body";
+        }
+      } else {
+        bodyEl.textContent = m.preview || "(no body)";
+      }
     });
 
     document.getElementById("mpSyncGmail")?.addEventListener("click", async () => {
@@ -5052,6 +5060,23 @@ const App = (() => {
   const peopleIcon = () => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
 
   /* boot */
+
+  /* Persistent data + 3s sheet sync (no full page reload) */
+  if (typeof Api.onFreshData === "function") {
+    Api.onFreshData((fresh) => {
+      if (!fresh) return;
+      state.data = fresh;
+      window.__mpmAll = fresh._all || [];
+      const v = state.view;
+      if (v === "members" || v === "overview" || v === "batches" || v === "payments" || v === "mail") {
+        try { render(v, fresh); } catch (e) {}
+      }
+    });
+  }
+  if (typeof Api.startAutoSync === "function") {
+    Api.startAutoSync(3000);
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 
