@@ -266,8 +266,8 @@ const Api = (() => {
     whatsapp: { priority: ["whatsapp", "whatsappnumber", "whatsappno"] },
     address: { priority: ["address", "addr", "location", "district"] },
     facebook: { priority: ["facebook", "facebookprofile", "fb", "fblink", "fbprofile"] },
-    medhaEmail: { priority: ["medhaemail", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail"] },
-    courseMail: { priority: ["coursemail", "coursemailaddress"] },
+    medhaEmail: { priority: ["medhaemail", "medha_email", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail"] },
+    courseMail: { priority: ["coursemail", "course mail", "coursemailaddress"] },
     tranId: { priority: ["tranid", "transid", "transactionid", "trxid", "trid", "paymentid"] },
     plan:  { priority: ["plan", "package"] },
     team:  { priority: ["team", "teamcategory", "category", "group"] },
@@ -415,6 +415,86 @@ const Api = (() => {
     return out;
   };
 
+
+  /** Public CSV export — reliable when gviz headers are blank */
+  const fetchBatch01Csv = async () => {
+    const gid = "738811071";
+    const url = `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+      clearTimeout(t);
+      if (!res.ok) throw new Error("CSV " + res.status);
+      const text = await res.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) throw new Error("CSV empty");
+      /* naive CSV split that handles quotes */
+      const split = (line) => {
+        const out = []; let cur = ""; let q = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { q = !q; continue; }
+          if (ch === "," && !q) { out.push(cur); cur = ""; continue; }
+          cur += ch;
+        }
+        out.push(cur);
+        return out.map(s => s.trim());
+      };
+      const headers = split(lines[0]).map(h => h.replace(/^"|"$/g, "").trim());
+      const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const hNorm = headers.map(norm);
+      const find = (...keys) => {
+        for (const k of keys) {
+          const i = hNorm.indexOf(norm(k));
+          if (i >= 0) return i;
+        }
+        for (const k of keys) {
+          const i = hNorm.findIndex(h => h.includes(norm(k)));
+          if (i >= 0) return i;
+        }
+        return -1;
+      };
+      const iName = find("name");
+      const iEmail = find("email");
+      const iCourse = find("coursemail", "course mail");
+      const iPhone = find("phone", "mobile");
+      const iWa = find("whatsapp", "whatsapp");
+      const iAddr = find("address");
+      const iFb = find("facebook", "fb");
+      const iMedha = find("medhaemail", "medha_email", "medha email");
+      const iTran = find("tranid", "tran_id", "transactionid");
+      if (iName < 0 && iEmail < 0) throw new Error("CSV headers missing");
+      const rows = [];
+      for (let r = 1; r < lines.length; r++) {
+        const cols = split(lines[r]).map(c => c.replace(/^"|"$/g, "").trim());
+        const name = iName >= 0 ? cols[iName] || "" : "";
+        const email = iEmail >= 0 ? cols[iEmail] || "" : "";
+        if (!name && !email) continue;
+        const n = String(r);
+        rows.push({
+          sl: cols[0] || String(r),
+          memberId: "NCM-P2-" + (n.length < 2 ? "0" + n : n),
+          name, email,
+          status: "", sentAt: "",
+          phone: iPhone >= 0 ? bdPhone(cols[iPhone]) : "",
+          whatsapp: iWa >= 0 ? bdPhone(cols[iWa]) : "",
+          address: iAddr >= 0 ? (cols[iAddr] || "") : "",
+          facebook: iFb >= 0 ? (cols[iFb] || "") : "",
+          medhaEmail: iMedha >= 0 ? (cols[iMedha] || "") : "",
+          courseMail: iCourse >= 0 ? (cols[iCourse] || "") : "",
+          tranId: iTran >= 0 ? (cols[iTran] || "") : "",
+          _row: r + 1,
+          _tab: "Members NCM-P2",
+          _src: "Master File CSV",
+        });
+      }
+      return { ok: true, rows, tab: "Master File", tabs: ["Master File"], sheetId: BATCH01_SHEET_ID, at: Date.now() };
+    } catch (e) {
+      return { ok: false, rows: null, error: String(e.message || e), at: Date.now() };
+    }
+  };
+
   /** Find the right tab in the Batch-01 spreadsheet and read the list */
   const fetchBatch01 = async () => {
     const key = "sheet:batch01";
@@ -458,7 +538,14 @@ const Api = (() => {
       cache.set(key, { v: out, t: Date.now() });
       return out;
     }
-    const out = { ok: false, rows: null, error: "Member list not found in the spreadsheet", at: Date.now() };
+    /* gviz failed — public CSV of Master File (gid 738811071) */
+    const csv = await fetchBatch01Csv();
+    if (csv.ok && csv.rows && csv.rows.length) {
+      batch01Cache = csv;
+      cache.set(key, { v: csv, t: Date.now() });
+      return csv;
+    }
+    const out = { ok: false, rows: null, error: (csv && csv.error) || "Member list not found in the spreadsheet", at: Date.now() };
     batch01Cache = out;
     cache.set(key, { v: out, t: Date.now() });
     return out;
@@ -900,22 +987,22 @@ const Api = (() => {
         sheetLinks: () => {
       const all = [
         {
-          id: "medha-program",
-          label: "Medha Program sheet",
-          sub: "Members NCM-P1 / P2 · EmailLog · Settings",
-          url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
-        },
-        {
           id: "ncm-part1",
           label: "NCM Part 1 sheet",
           sub: "Master File · Monthly trackers",
-          url: `https://docs.google.com/spreadsheets/d/${NCM_SHEET_ID}/edit`,
+          url: "https://docs.google.com/spreadsheets/d/1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE/edit?gid=349429573#gid=349429573",
         },
         {
           id: "batch01-master",
           label: "Medha Batch-01 Master sheet",
-          sub: "NCM PART-2 members · Master File",
-          url: `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/edit`,
+          sub: "NCM PART-2 · Master File",
+          url: "https://docs.google.com/spreadsheets/d/1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw/edit?gid=738811071#gid=738811071",
+        },
+        {
+          id: "medha-program",
+          label: "Medha Program sheet",
+          sub: "Members NCM-P1 / P2 · EmailLog · Settings",
+          url: "https://docs.google.com/spreadsheets/d/1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII/edit?gid=1040274874#gid=1040274874",
         },
       ];
       let hidden = [];
@@ -924,22 +1011,22 @@ const Api = (() => {
     },
     allSheetLinks: () => ([
       {
-        id: "medha-program",
-        label: "Medha Program sheet",
-        sub: "Members NCM-P1 / P2 · EmailLog · Settings",
-        url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`,
-      },
-      {
         id: "ncm-part1",
         label: "NCM Part 1 sheet",
         sub: "Master File · Monthly trackers",
-        url: `https://docs.google.com/spreadsheets/d/${NCM_SHEET_ID}/edit`,
+        url: "https://docs.google.com/spreadsheets/d/1DIcYeYPIascTRDhthEq2fG5kCAtL_-t4_kbu5n-pDmE/edit?gid=349429573#gid=349429573",
       },
       {
         id: "batch01-master",
         label: "Medha Batch-01 Master sheet",
-        sub: "NCM PART-2 members · Master File",
-        url: `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/edit`,
+        sub: "NCM PART-2 · Master File",
+        url: "https://docs.google.com/spreadsheets/d/1PZ4Ccbec-Qm5m_s4mFya_X24Ykd9HGgw0Mcmfpf9zZw/edit?gid=738811071#gid=738811071",
+      },
+      {
+        id: "medha-program",
+        label: "Medha Program sheet",
+        sub: "Members NCM-P1 / P2 · EmailLog · Settings",
+        url: "https://docs.google.com/spreadsheets/d/1f1lPFlXA8tRXtg5GfyetufaUYHYnZPn9AfCHiOwZwII/edit?gid=1040274874#gid=1040274874",
       },
     ]),
     hideSheetLink: (id) => {

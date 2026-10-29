@@ -79,6 +79,15 @@ const App = (() => {
     const boot = parseHash();
     setView(boot.view || "overview", { replace: true, sub: boot.sub });
     loadMailBadge();
+
+    document.getElementById("sidebarSignOut")?.addEventListener("click", () => {
+      if (window.Login && typeof window.Login.logout === "function") window.Login.logout();
+      else {
+        try { sessionStorage.clear(); } catch (e) {}
+        location.href = "index.html";
+      }
+    });
+
     // When a background sheet refresh lands, repaint the current view
     Api.onFreshData((fresh) => {
       if (!fresh) return;
