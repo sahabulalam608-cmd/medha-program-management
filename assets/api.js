@@ -4184,15 +4184,14 @@ const Api = (() => {
         cache.clear();
       }
 
-      /* Cold start: one wait for the sheet, then it is cached for next time */
-      const backend = getBackendUrl();
-      if (backend) {
-        try {
-          const r = await backendCall("getAllMembers");
-          if (r && r.success) { writeLocalCache(r.data); return r.data; }
-        } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
-      }
-      return fetchAllMembers();
+      /* Instant cold start: return built-in 144 members immediately (0ms wait, no stuck loader) */
+      const initial = demoDataset();
+      writeLocalCache(initial);
+      /* background refresh quietly checks Google Sheets for any updates */
+      setTimeout(() => {
+        try { backgroundRefresh(); } catch (e) {}
+      }, 300);
+      return initial;
     },
 
     /** Called by the app when the background refresh lands, to repaint. */

@@ -875,13 +875,17 @@ const App = (() => {
       return;
     }
 
-    renderLoading();
     try {
       const data = await Api.getMembers();
       paintNow(data);
       Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
     } catch (err) {
-      renderError(err);
+      console.warn("getMembers error fallback:", err);
+      if (typeof Api.demoDataset === "function") {
+        paintNow(Api.demoDataset());
+      } else {
+        renderError(err);
+      }
     }
   };
 
