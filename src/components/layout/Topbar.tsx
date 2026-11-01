@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ViewMode } from '../../types';
 import { Download, ChevronRight, CheckCircle, Database } from 'lucide-react';
 
@@ -32,6 +32,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenVault,
   syncStatus
 }) => {
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const info = VIEW_TITLES[currentView] || { title: 'Portal', subtitle: '', bn: '' };
 
   return (
@@ -65,16 +66,78 @@ export const Topbar: React.FC<TopbarProps> = ({
           <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
         </button>
 
-        {/* Export Button matching screenshot */}
-        <div className="flex items-center gap-2">
+        {/* Direct Download Code Button for GitHub update */}
+        <a
+          href="/medha-source-code.zip"
+          download="medha-source-code.zip"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-sm ring-2 ring-purple-300 ring-offset-1"
+          title="Download complete updated code zip for GitHub"
+        >
+          <Download className="w-3.5 h-3.5 animate-bounce" />
+          <span>Download Code (.zip)</span>
+        </a>
+
+        {/* Export Dropdown matching original screenshot & providing downloads */}
+        <div className="relative flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs" title="Connected to Google Sheets" />
           <button
-            onClick={onExport}
+            onClick={() => setShowExportMenu(!showExportMenu)}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1e1b4b] hover:bg-[#2e1065] transition-colors shadow-xs"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export</span>
           </button>
+
+          {showExportMenu && (
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-purple-100 p-2 z-50 animate-in fade-in slide-in-from-top-2">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-xs font-bold text-[#1e1b4b]">Export & Download Options</p>
+                <p className="text-[11px] text-[#64748b]">কোড ডাউনলোড ও ডেটা এক্সপোর্ট</p>
+              </div>
+
+              <div className="py-1">
+                <a
+                  href="/medha-source-code.zip"
+                  download="medha-source-code.zip"
+                  onClick={() => setShowExportMenu(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-purple-900 hover:bg-purple-50 transition-colors"
+                >
+                  <Download className="w-4 h-4 text-purple-600" />
+                  <div>
+                    <span className="font-bold block">Download Source Code (.zip)</span>
+                    <span className="text-[10px] text-gray-500">GitHub-এ আপলোডের জন্য সম্পূর্ণ কোড</span>
+                  </div>
+                </a>
+
+                <a
+                  href="/medha-dist-build.zip"
+                  download="medha-dist-build.zip"
+                  onClick={() => setShowExportMenu(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-blue-900 hover:bg-blue-50 transition-colors"
+                >
+                  <Download className="w-4 h-4 text-blue-600" />
+                  <div>
+                    <span className="font-bold block">Download Dist Build (.zip)</span>
+                    <span className="text-[10px] text-gray-500">সরাসরি হোস্টিংয়ের জন্য বিল্ড ফাইল</span>
+                  </div>
+                </a>
+
+                <button
+                  onClick={() => {
+                    setShowExportMenu(false);
+                    onExport();
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-emerald-900 hover:bg-emerald-50 transition-colors"
+                >
+                  <Database className="w-4 h-4 text-emerald-600" />
+                  <div>
+                    <span className="font-bold block">Export Table Data (.csv)</span>
+                    <span className="text-[10px] text-gray-500">বর্তমান পেজের তথ্য CSV ফাইলে ডাউনলোড</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
