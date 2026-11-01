@@ -30,3 +30,5 @@ Build for production:
 ```bash
 npm run build
 ```
+
+Deploy trigger
