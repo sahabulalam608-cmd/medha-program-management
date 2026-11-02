@@ -4842,8 +4842,13 @@ const Api = (() => {
 
     getQuota: async () => {
       if (!getBackendUrl()) return { remaining: null };
-      try { return await backendCall("getEmailQuota", {}); }
-      catch { return { remaining: null }; }
+      try {
+        const r = await backendCall("getEmailQuota", {});
+        if (!r) return { remaining: null };
+        if (r.remaining != null) return r;
+        if (r.data && r.data.remaining != null) return r.data;
+        return r;
+      } catch { return { remaining: null }; }
     },
 
     /** Email history log (from EmailLog sheet) */

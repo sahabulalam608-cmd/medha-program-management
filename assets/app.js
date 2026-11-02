@@ -4381,53 +4381,30 @@ const App = (() => {
           <span class="pm-status-line" id="pmAiStatus"></span>
         </div>
 
-        <div class="pm-dual">
-          <div>
-            <div class="pm-editor-label">
-              <span>Message (BN)</span>
-              <button class="pm-chip-btn ghost" id="pmTrBn" style="padding:3px 8px;font-size:11px;">⇄ Translate → EN</button>
-              <span class="hint">* — type here, EN auto</span>
-            </div>
-            <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write in Bangla — English appears beside it automatically..."></div>
-            <div class="pm-fmt-bar">
-              <button class="pm-fmt" data-fmt="bold" data-lang="bn"><b>B</b></button>
-              <button class="pm-fmt" data-fmt="italic" data-lang="bn"><i>I</i></button>
-              <button class="pm-fmt" data-fmt="underline" data-lang="bn"><u>U</u></button>
-              <button class="pm-fmt" data-fmt="insertUnorderedList" data-lang="bn">• List</button>
-              <button class="pm-fmt" data-fmt="insertOrderedList" data-lang="bn">1. List</button>
-              <input type="color" id="pmColorBn" value="#5b21b6" />
-              <button class="pm-fmt color" data-color="bn">Color</button>
-              <select id="pmFontBn"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Tahoma</option><option>Trebuchet MS</option><option>Calibri</option></select>
-              <button class="pm-fmt" data-font="bn">Font</button>
-              <select id="pmSizeBn"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">XL</option><option value="6">XXL</option></select>
-              <button class="pm-fmt" data-size="bn">Size</button>
-            </div>
+        
+        <div class="pm-single" style="margin-top:4px;">
+          <div class="pm-editor-label">
+            <span>Message</span>
           </div>
-          <div>
-            <div class="pm-editor-label">
-              <span>Message (EN)</span>
-              <button class="pm-chip-btn ghost" id="pmTrEn" style="padding:3px 8px;font-size:11px;">⇄ Translate → BN</button>
-              <span class="hint">* — type here, BN auto</span>
-            </div>
-            <div id="pmBodyEn" contenteditable="true" class="pm-editor" data-placeholder="Write in English — Bangla appears auto..."></div>
-            <div class="pm-fmt-bar">
-              <button class="pm-fmt" data-fmt="bold" data-lang="en"><b>B</b></button>
-              <button class="pm-fmt" data-fmt="italic" data-lang="en"><i>I</i></button>
-              <button class="pm-fmt" data-fmt="underline" data-lang="en"><u>U</u></button>
-              <button class="pm-fmt" data-fmt="insertUnorderedList" data-lang="en">• List</button>
-              <button class="pm-fmt" data-fmt="insertOrderedList" data-lang="en">1. List</button>
-              <input type="color" id="pmColorEn" value="#5b21b6" />
-              <button class="pm-fmt color" data-color="en">Color</button>
-              <select id="pmFontEn"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Tahoma</option><option>Trebuchet MS</option><option>Calibri</option></select>
-              <button class="pm-fmt" data-font="en">Font</button>
-              <select id="pmSizeEn"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">XL</option><option value="6">XXL</option></select>
-              <button class="pm-fmt" data-size="en">Size</button>
-            </div>
+          <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write your message here…"></div>
+          <div id="pmBodyEn" contenteditable="true" class="pm-editor" style="display:none;" aria-hidden="true"></div>
+          <div class="pm-fmt-bar">
+            <button class="pm-fmt" data-fmt="bold" data-lang="bn"><b>B</b></button>
+            <button class="pm-fmt" data-fmt="italic" data-lang="bn"><i>I</i></button>
+            <button class="pm-fmt" data-fmt="underline" data-lang="bn"><u>U</u></button>
+            <button class="pm-fmt" data-fmt="insertUnorderedList" data-lang="bn">• List</button>
+            <button class="pm-fmt" data-fmt="insertOrderedList" data-lang="bn">1. List</button>
+            <input type="color" id="pmColorBn" value="#5b21b6" />
+            <button class="pm-fmt color" data-color="bn">Color</button>
+            <select id="pmFontBn"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Tahoma</option><option>Trebuchet MS</option><option>Calibri</option></select>
+            <button class="pm-fmt" data-font="bn">Font</button>
+            <select id="pmSizeBn"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">XL</option><option value="6">XXL</option></select>
+            <button class="pm-fmt" data-size="bn">Size</button>
           </div>
         </div>
 
         <div class="pm-row" style="margin-top:14px;">
-          <span style="font-size:11px;color:#64748b;">{{name}} {{memberId}} / {{member id}} {{email}} — use exact spelling. Message is taken from Bangla or English body (whichever is filled).</span>
+          <span style="font-size:11px;color:#64748b;">{{name}} {{memberId}} / {{member id}} {{email}} — use exact spelling.</span>
         </div>
 
         <div class="pm-row2">
@@ -4913,14 +4890,107 @@ const App = (() => {
       toast("Test send sent to your own inbox", "success");
     });
 
-    // send
+    // send — 3s confirm, then result popup
+    const showSendConfirm = (n, onOk) => {
+      const old = document.getElementById("pmConfirmModal");
+      if (old) old.remove();
+      const modal = document.createElement("div");
+      modal.id = "pmConfirmModal";
+      modal.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;";
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(0,0,0,.18);font-family:inherit;">
+          <div style="font-size:16px;font-weight:800;color:#1e1b4b;margin-bottom:6px;">Confirm send</div>
+          <div style="font-size:13.5px;color:#475569;line-height:1.5;margin-bottom:16px;">
+            Send this mail to <b>${n}</b> recipient${n === 1 ? "" : "s"} marked <b>To Send</b>?
+          </div>
+          <div style="height:6px;background:#ede9fe;border-radius:99px;overflow:hidden;margin-bottom:10px;">
+            <div id="pmConfirmBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#4f46e5);transition:width .2s linear;"></div>
+          </div>
+          <div id="pmConfirmHint" style="font-size:12px;color:#7c3aed;font-weight:600;margin-bottom:14px;">Wait 3 seconds…</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" id="pmConfirmCancel" style="padding:9px 16px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>
+            <button type="button" id="pmConfirmOk" disabled style="padding:9px 16px;border-radius:10px;border:none;background:#c4b5fd;color:#fff;font-weight:700;cursor:not-allowed;font-family:inherit;">Submit</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      let left = 3;
+      const bar = modal.querySelector("#pmConfirmBar");
+      const hint = modal.querySelector("#pmConfirmHint");
+      const ok = modal.querySelector("#pmConfirmOk");
+      const tick = () => {
+        bar.style.width = ((3 - left) / 3 * 100) + "%";
+        if (left <= 0) {
+          bar.style.width = "100%";
+          hint.textContent = "Ready — press Submit to send";
+          ok.disabled = false;
+          ok.style.background = "#5b21b6";
+          ok.style.cursor = "pointer";
+          return;
+        }
+        hint.textContent = "Wait " + left + " second" + (left === 1 ? "" : "s") + "…";
+        left -= 1;
+        setTimeout(tick, 1000);
+      };
+      setTimeout(tick, 30);
+      const close = () => modal.remove();
+      modal.querySelector("#pmConfirmCancel").onclick = close;
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+      ok.onclick = () => { if (ok.disabled) return; close(); onOk(); };
+    };
+
+    const showSendResult = (r, total) => {
+      const old = document.getElementById("pmResultModal");
+      if (old) old.remove();
+      const sent = r && (r.sent != null) ? r.sent : 0;
+      const failed = r && (r.failed != null) ? r.failed : Math.max(0, total - sent);
+      const failedList = (r && (r.failedList || r.failedEmails || [])) || [];
+      const msg = (r && r.message) ? String(r.message) : "";
+      const modal = document.createElement("div");
+      modal.id = "pmResultModal";
+      modal.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;";
+      const details = failedList.length
+        ? `<details style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;">
+             <summary style="cursor:pointer;font-weight:700;color:#b91c1c;font-size:13px;">Details — ${failedList.length} failed address(es)</summary>
+             <ul style="margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#7f1d1d;line-height:1.6;">
+               ${failedList.map(x => `<li>${String(x).replace(/</g,"&lt;")}</li>`).join("")}
+             </ul>
+           </details>`
+        : (failed > 0 ? `<div style="margin-top:10px;font-size:12.5px;color:#b91c1c;">Some mails failed. Check Gmail / quota / recipient addresses.</div>` : "");
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.18);font-family:inherit;">
+          <div style="font-size:16px;font-weight:800;color:#1e1b4b;margin-bottom:8px;">Send result</div>
+          <div style="display:flex;gap:12px;margin:12px 0 4px;">
+            <div style="flex:1;background:#ecfdf5;border-radius:12px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:#047857;">${sent}</div>
+              <div style="font-size:11px;font-weight:700;color:#065f46;letter-spacing:.04em;">SENT</div>
+            </div>
+            <div style="flex:1;background:#fef2f2;border-radius:12px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:#b91c1c;">${failed}</div>
+              <div style="font-size:11px;font-weight:700;color:#7f1d1d;letter-spacing:.04em;">FAILED</div>
+            </div>
+            <div style="flex:1;background:#f5f3ff;border-radius:12px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:#5b21b6;">${total}</div>
+              <div style="font-size:11px;font-weight:700;color:#4c1d95;letter-spacing:.04em;">TOTAL</div>
+            </div>
+          </div>
+          ${msg ? `<div style="font-size:12.5px;color:#64748b;margin-top:8px;">${msg.replace(/</g,"&lt;")}</div>` : ""}
+          ${details}
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="button" id="pmResultOk" style="padding:9px 18px;border-radius:10px;border:none;background:#5b21b6;color:#fff;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      const close = () => modal.remove();
+      modal.querySelector("#pmResultOk").onclick = close;
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    };
+
     document.getElementById("pmSend").addEventListener("click", async () => {
       if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
       const subject = document.getElementById("pmSubject").value.trim();
       const elBn = document.getElementById("pmBodyBn");
       const elEn = document.getElementById("pmBodyEn");
       const textOf = (el) => (el && (el.innerText || el.textContent) || "").replace(/\u00a0/g, " ").trim();
-      /* Prefer Bangla if filled, else English — no language selector */
       let bodyEl = textOf(elBn) ? elBn : (textOf(elEn) ? elEn : elBn);
       const bodyText = textOf(bodyEl);
       const body = (bodyEl && bodyEl.innerHTML) ? bodyEl.innerHTML.trim() : "";
@@ -4930,27 +5000,39 @@ const App = (() => {
       }));
       if (!recipients.length) { toast("No one marked “To Send”", "error"); return; }
 
-      const wrap = document.getElementById("pmProgressWrap");
-      const fill = document.getElementById("pmProgressFill");
-      const txt = document.getElementById("pmProgressText");
-      wrap.style.display = "block";
-      document.getElementById("pmStop").style.display = "inline-flex";
-      document.getElementById("pmSendStatus").textContent = "Sending…";
-      fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
+      showSendConfirm(recipients.length, async () => {
+        const wrap = document.getElementById("pmProgressWrap");
+        const fill = document.getElementById("pmProgressFill");
+        const txt = document.getElementById("pmProgressText");
+        wrap.style.display = "block";
+        document.getElementById("pmStop").style.display = "inline-flex";
+        document.getElementById("pmSendStatus").textContent = "Sending…";
+        fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
 
-      try {
-        const r = await Api.sendMail({ program, subject, bodyHtml: body, recipients });
-        fill.style.width = "100%";
-        txt.textContent = (r.sent || 0) + " / " + recipients.length + " sent";
-        document.getElementById("pmSendStatus").textContent = "Done.";
-        toast("Sent: " + (r.sent || 0) + " · Failed: " + (r.failed || 0), "success");
-        document.getElementById("pmRefresh").click();
-      } catch (err) {
-        document.getElementById("pmSendStatus").textContent = "Failed: " + err.message;
-        toast("Send failed: " + err.message, "error");
-      } finally {
-        document.getElementById("pmStop").style.display = "none";
-      }
+        try {
+          const r = await Api.sendMail({ program, subject, bodyHtml: body, recipients });
+          fill.style.width = "100%";
+          const sentN = (r && r.sent) || 0;
+          txt.textContent = sentN + " / " + recipients.length + " sent";
+          document.getElementById("pmSendStatus").textContent = "Done.";
+          showSendResult(r || {}, recipients.length);
+          try { document.getElementById("pmRefresh").click(); } catch (e) {}
+          if (backend) {
+            Api.getQuota?.().then?.(q => {
+              if (q && q.remaining != null) {
+                setStat("pmQuota", q.remaining);
+                const t = document.getElementById("pmQuotaText");
+                if (t) t.textContent = "Left: " + q.remaining + " · Free ~ " + (q.estimatedFreeAt || "—");
+              }
+            });
+          }
+        } catch (err) {
+          document.getElementById("pmSendStatus").textContent = "Failed: " + err.message;
+          showSendResult({ sent: 0, failed: recipients.length, failedList: [err.message], message: err.message }, recipients.length);
+        } finally {
+          document.getElementById("pmStop").style.display = "none";
+        }
+      });
     });
     document.getElementById("pmStop").addEventListener("click", () => {
       document.getElementById("pmSendStatus").textContent = "Stopped.";
@@ -4972,11 +5054,15 @@ const App = (() => {
     // quota
     if (backend) {
       Api.getQuota?.().then?.(r => {
-        if (r && r.remaining != null) {
-          setStat("pmQuota", r.remaining);
-          document.getElementById("pmQuotaText").textContent = "Left: " + r.remaining + " · Free ~ " + (r.estimatedFreeAt || "—");
+        const rem = (r && (r.remaining != null ? r.remaining : r.quota));
+        if (rem != null && rem !== "") {
+          setStat("pmQuota", rem);
+          const t = document.getElementById("pmQuotaText");
+          if (t) t.textContent = "Left: " + rem + " · Free ~ " + ((r && r.estimatedFreeAt) || "—");
+        } else {
+          setStat("pmQuota", "—");
         }
-      });
+      }).catch?.(() => { setStat("pmQuota", "—"); });
     }
     document.getElementById("pmWatcher").textContent = new Date().toLocaleString("en-GB");
 
