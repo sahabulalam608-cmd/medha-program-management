@@ -4776,6 +4776,20 @@ const Api = (() => {
       catch { return { success: false, marked: 0 }; }
     },
 
+    /** Mark one thread as unread again */
+    markMailUnread: async (threadId) => {
+      if (!getBackendUrl() || !threadId) return { success: false };
+      try { return await backendCall("markMailUnread", { threadId }); }
+      catch { return { success: false }; }
+    },
+
+    /** Mark every inbox mail as unread again */
+    markMailUnseen: async () => {
+      if (!getBackendUrl()) return { success: false, marked: 0 };
+      try { return await backendCall("markMailUnseen", {}); }
+      catch { return { success: false, marked: 0 }; }
+    },
+
     sendMail: async (payload) => backendCall("sendProgramMails", { payload }),
 
     getQuota: async () => {
