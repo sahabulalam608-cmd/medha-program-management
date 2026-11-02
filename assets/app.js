@@ -1288,7 +1288,7 @@ const App = (() => {
         ${info("Team category", m.team || prof.team)}
         ${info("FB profile", m.facebook || prof.fbProfile, (m.facebook || prof.fbProfile || "").match(/^https?:\/\//) ? (prof.fbProfile || m.facebook) : "", "assets/img/facebook-icon.png")}
         ${info("Page link", prof.pageLink, prof.pageLink)}
-        ${info("Transaction ID", m.tranId)}
+        ${info("Transaction ID", m.tranId || m.transactionId || m.tran_id || "")}
         ${info("Mail status", m.status || "Not set")}
         ${info("Last sent", m.sentAt ? stamp(m.sentAt) : "Not sent yet")}`,
       payment: () => `
@@ -1296,7 +1296,7 @@ const App = (() => {
         ${info("Payment status", prof.paymentStatus || m.paymentStatus)}
         ${info("Payment date", prof.paymentDate || m.paymentDate)}
         ${info("Payment channel", prof.paymentChannel || m.paymentChannel)}
-        ${info("Transaction ID", m.tranId)}
+        ${info("Transaction ID", m.tranId || m.transactionId || m.tran_id || "")}
         ${info("Due", prof.due)}
         ${info("July_SF", prof.julySF)}
         ${info("Aug_SF", prof.augSF)}
@@ -3899,6 +3899,7 @@ const App = (() => {
     document.getElementById("mailItems")?.addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-mail-mark]");
       if (!btn) return;
+      e.preventDefault();
       e.stopPropagation();
       if (!backend) { toast("Connect the backend to change read state", "error"); return; }
       const threadId = btn.getAttribute("data-mail-mark");
@@ -3906,19 +3907,23 @@ const App = (() => {
       if (!threadId) { toast("This mail has no thread id", "error"); return; }
       btn.disabled = true;
       try {
-        if (wantUnread) {
-          await Api.markMailUnread(threadId);
-        } else {
-          await Api.markMailRead(threadId);
+        const r = wantUnread
+          ? await Api.markMailUnread(threadId)
+          : await Api.markMailRead(threadId);
+        if (r && r.success === false) {
+          throw new Error(r.message || "Gmail did not update the read state");
         }
         const list = mailList();
         const target = list.find((x) => x.threadId === threadId);
         if (target) target.unread = wantUnread;
+        writeMailCache(list);
         loadMailBadge();
         paint();
-        toast(wantUnread ? "Marked as unread" : "Marked as read", "success");
+        toast(wantUnread ? "Marked as unread in Gmail" : "Marked as read in Gmail", "success");
       } catch (err) {
         toast("Could not change the read state: " + (err && err.message ? err.message : "unknown error"), "error");
+      } finally {
+        btn.disabled = false;
       }
     });
 
@@ -3942,15 +3947,19 @@ const App = (() => {
 
     /* opening the inbox means the mails have been seen — mark them read */
     document.getElementById("mailItems")?.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-mail-mark]")) return; /* mark button handles itself */
       const item = e.target.closest(".ml-item");
       if (!item) return;
       const idx = parseInt(item.getAttribute("data-mail-idx") || "-1", 10);
       const list = mailList();
       const m = list[idx];
       if (!m) return;
-      m.unread = false;
-      if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
-      loadMailBadge();
+      /* Opening a mail marks it read in Gmail (normal client behaviour) */
+      if (m.unread) {
+        m.unread = false;
+        if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
+        loadMailBadge();
+      }
       /* toggle body expand/collapse without full repaint */
       const bodyEl = item.querySelector(".ml-fullbody");
       if (!bodyEl) return;
@@ -5010,11 +5019,44 @@ const App = (() => {
         fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
 
         try {
-          const r = await Api.sendMail({ program, subject, bodyHtml: body, recipients });
+          const bannerMode = (document.querySelector('input[name="pmBanner"]:checked') || {}).value || "previous";
+          const customBanner = (document.getElementById("pmCustomBanner") || {}).value || "";
+          const customFooter = (document.getElementById("pmCustomFooter") || {}).value || "";
+          const DEFAULT_BANNER = "https://medha-program-management.pages.dev/assets/img/mail-footer.png";
+          const r = await Api.sendMail({
+            program,
+            subject,
+            bodyHtml: body,
+            recipients,
+            bannerMode,
+            bannerUrl: customBanner || DEFAULT_BANNER,
+            footerUrl: customFooter || "",
+            includeAutoNote: (function(){ const el = document.getElementById("pmAutoNote"); return el ? !!el.checked : true; })(),
+          });
           fill.style.width = "100%";
           const sentN = (r && r.sent) || 0;
           txt.textContent = sentN + " / " + recipients.length + " sent";
           document.getElementById("pmSendStatus").textContent = "Done.";
+          /* Instant Last Sent on rows that were accepted (before sheet refresh) */
+          if (sentN > 0) {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, "0");
+            const localStamp = pad(now.getDate()) + "-" + pad(now.getMonth() + 1) + "-" + now.getFullYear()
+              + " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+            const failedSet = new Set(((r && r.failedList) || []).map(String));
+            recipients.forEach((rec) => {
+              const email = String(rec.email || "").toLowerCase();
+              const failed = [...failedSet].some((f) => f.toLowerCase().indexOf(email) !== -1);
+              if (failed) return;
+              const m = members.find((x) => x.memberId === rec.memberId || String(x.email || "").toLowerCase() === email);
+              if (m) {
+                m.status = "Sent";
+                m.sentAt = localStamp;
+                decision[m.memberId] = "Sent";
+              }
+            });
+            try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
+          }
           showSendResult(r || {}, recipients.length);
           try { document.getElementById("pmRefresh").click(); } catch (e) {}
           if (backend) {

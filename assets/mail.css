@@ -128,7 +128,8 @@
   display: grid;
   grid-template-columns: 296px minmax(0, 1fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
+  min-height: calc(100vh - 120px);
 }
 .mail-workspace.with-drawer {
   grid-template-columns: 296px minmax(0, 1fr) 380px;
@@ -228,6 +229,19 @@
 .mail-list-panel {
   background: #fff; border: 1px solid var(--border);
   border-radius: var(--radius-xl); overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 100px);
+  min-height: 420px;
+}
+#mailItems {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  max-height: calc(100vh - 200px);
+  -webkit-overflow-scrolling: touch;
+}
+.mail-workspace {
+  align-items: stretch;
 }
 .mlp-head {
   display: flex; align-items: center; justify-content: space-between;

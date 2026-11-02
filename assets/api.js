@@ -4826,9 +4826,13 @@ const Api = (() => {
 
     /** Mark one thread as unread again */
     markMailUnread: async (threadId) => {
-      if (!getBackendUrl() || !threadId) return { success: false };
-      try { return await backendCall("markMailUnread", { threadId }); }
-      catch { return { success: false }; }
+      if (!getBackendUrl() || !threadId) return { success: false, message: "No backend or threadId" };
+      try {
+        const r = await backendCall("markMailUnread", { threadId });
+        return r || { success: false, message: "Empty response" };
+      } catch (e) {
+        return { success: false, message: String((e && e.message) || e) };
+      }
     },
 
     /** Mark every inbox mail as unread again */
