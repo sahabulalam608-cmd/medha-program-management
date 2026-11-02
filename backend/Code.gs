@@ -119,6 +119,7 @@ function handleApi_(action, data) {
     };
     case "markMailSeen": return markMailSeen();
     case "markMailRead": return markMailRead(data.threadId);
+    case "markMailUnread": return markMailUnread(data.threadId);
     case "setupGmail": return setupGmail();
     case "markMailUnseen": return markMailUnseen();
     case "fetchLogMailBody": return fetchLogMailBody(data.subject || "", data.recipient || "");
@@ -709,6 +710,18 @@ function getMailBadge(withList) {
 }
 
 /** Mark one thread as read (the portal calls this when a mail is opened) */
+/** Mark one thread as unread (the portal calls this from the inbox) */
+function markMailUnread(threadId) {
+  try {
+    var t = GmailApp.getThreadById(threadId);
+    if (!t) return { success: false, message: "Thread not found" };
+    t.markUnread();
+    return { success: true, threadId: threadId };
+  } catch (e) {
+    return { success: false, message: String((e && e.message) || e) };
+  }
+}
+
 function markMailRead(threadId) {
   try {
     var t = GmailApp.getThreadById(threadId);
@@ -763,7 +776,8 @@ function markMailSeen() {
 
 function markMailUnseen() {
   try {
-    var threads = GmailApp.search("in:inbox", 0, 10);
+    /* the whole inbox — not only the first ten threads */
+    var threads = GmailApp.search("in:inbox", 0, 200);
     var n = 0;
     for (var i = 0; i < threads.length; i++) {
       try { threads[i].markUnread(); n++; } catch (e1) {}
