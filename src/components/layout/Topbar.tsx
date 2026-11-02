@@ -1,12 +1,39 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ViewMode } from '../../types';
 import { Download, ChevronRight, CheckCircle, Database } from 'lucide-react';
+
+/* ---- the Bangladesh clock (UTC+6) ---------------------------------- */
+function useDhakaClock() {
+  const [time, setTime] = useState('--:--:--');
+  const [date, setDate] = useState('');
+
+  useEffect(() => {
+    const timeFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Dhaka',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+    });
+    const dateFmt = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Dhaka', day: 'numeric', month: 'long', year: 'numeric',
+    });
+    const tick = () => {
+      const now = new Date();
+      setTime(timeFmt.format(now));
+      setDate(dateFmt.format(now));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return { time, date };
+}
 
 interface TopbarProps {
   currentView: ViewMode;
   onExport: () => void;
   onOpenVault: () => void;
   syncStatus: 'synced' | 'syncing' | 'error';
+  backendOnline: boolean;
 }
 
 const VIEW_TITLES: Record<ViewMode, { title: string; subtitle: string; bn: string }> = {
@@ -30,9 +57,11 @@ export const Topbar: React.FC<TopbarProps> = ({
   currentView,
   onExport,
   onOpenVault,
-  syncStatus
+  syncStatus,
+  backendOnline
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const { time, date } = useDhakaClock();
   const info = VIEW_TITLES[currentView] || { title: 'Portal', subtitle: '', bn: '' };
 
   return (
@@ -79,7 +108,21 @@ export const Topbar: React.FC<TopbarProps> = ({
 
         {/* Export Dropdown matching original screenshot & providing downloads */}
         <div className="relative flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs" title="Connected to Google Sheets" />
+          <span
+            className={`w-2.5 h-2.5 rounded-full shadow-xs ${backendOnline ? 'bg-emerald-500' : 'bg-amber-400'}`}
+            title={backendOnline ? 'Backend connected' : 'Backend not connected — read-only'}
+          />
+          <div
+            className="flex flex-col items-end gap-[1px] rounded-[10px] border border-[#ece8fd] bg-[#faf9ff] px-[11px] pt-[4px] pb-[5px] min-w-[116px] select-none"
+            title="Bangladesh Standard Time (UTC+6)"
+          >
+            <span className="text-[13px] font-extrabold leading-[1.15] text-[#1e1b4b] tabular-nums tracking-[0.01em]">
+              {time}
+            </span>
+            <span className="text-[9px] font-bold leading-[1.2] text-[#64748b] uppercase tabular-nums tracking-[0.08em]">
+              {date}
+            </span>
+          </div>
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-[#1e1b4b] hover:bg-[#2e1065] transition-colors shadow-xs"

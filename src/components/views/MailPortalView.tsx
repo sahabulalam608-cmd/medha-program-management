@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Member, MailLog } from '../../types';
-import { MedhaApiService } from '../../services/api';
+import { MedhaApiService, InboxMail } from '../../services/api';
 import { MAIL_EXAMPLE_TOP, MAIL_EXAMPLE_BOTTOM } from '../../data/mockData';
 import {
   Send,
@@ -13,7 +13,11 @@ import {
   FolderOpen,
   Sparkles,
   Check,
-  AlertCircle
+  AlertCircle,
+  Inbox,
+  MailOpen,
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 
 interface MailPortalViewProps {
@@ -46,6 +50,59 @@ OTA Academic Coordination Team
 Online Tech Academy Bangladesh`
   );
 
+  // 0. Inbox | Program Mail
+  const [tab, setTab] = useState<'inbox' | 'progmail'>('inbox');
+  const [inboxMails, setInboxMails] = useState<InboxMail[]>([]);
+  const [inboxUnread, setInboxUnread] = useState<number>(0);
+  const [inboxBusy, setInboxBusy] = useState(false);
+  const [inboxError, setInboxError] = useState('');
+  const backendConfigured = !!MedhaApiService.getBackendUrl();
+
+  const loadInbox = async () => {
+    if (!backendConfigured) { setInboxError('Connect the backend to read your inbox.'); return; }
+    setInboxBusy(true);
+    try {
+      const r = await MedhaApiService.getInboxMails();
+      setInboxMails(r.items);
+      setInboxUnread(r.unread);
+      setInboxError('');
+    } catch (e) {
+      setInboxError((e && e.message) || 'Could not read the inbox.');
+    }
+    setInboxBusy(false);
+  };
+
+  useEffect(() => {
+    if (tab === 'inbox') loadInbox();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const markOne = async (m: InboxMail) => {
+    if (!backendConfigured) { setInboxError('Connect the backend to change read state.'); return; }
+    try {
+      if (m.unread) await MedhaApiService.markMailRead(m.threadId);
+      else await MedhaApiService.markMailUnread(m.threadId);
+      setInboxMails((list) =>
+        list.map((x) => (x.threadId === m.threadId ? { ...x, unread: !m.unread } : x))
+      );
+      setInboxUnread((n) => Math.max(0, n + (m.unread ? -1 : 1)));
+    } catch (e) {
+      setInboxError((e && e.message) || 'Could not change the read state.');
+    }
+  };
+
+  const markAll = async (unread: boolean) => {
+    if (!backendConfigured) { setInboxError('Connect the backend to change read state.'); return; }
+    try {
+      if (unread) await MedhaApiService.markMailUnseen();
+      else await MedhaApiService.markMailSeen();
+      setInboxMails((list) => list.map((x) => ({ ...x, unread })));
+      setInboxUnread(unread ? inboxMails.length : 0);
+    } catch (e) {
+      setInboxError((e && e.message) || 'Could not change the read state.');
+    }
+  };
+
   const [reasonText, setReasonText] = useState<string>('');
   const [driveFolderLink, setDriveFolderLink] = useState<string>('');
   const [isSending, setIsSending] = useState(false);
@@ -74,11 +131,12 @@ Online Tech Academy Bangladesh`
   // Top row: NCM- 101 ( Example ) | Md Sahabul Alam | sahabulota@gmail.com
   // Middle: Cohort members
   // Bottom row: NCM-P2-0101002 ( Example ) | Md Ahsan | howladerahsan@gmail.com
-  const displayRecipients: Member[] = [
+  /* memoised so the table does not rebuild on every render */
+  const displayRecipients: Member[] = useMemo(() => [
     { ...MAIL_EXAMPLE_TOP, sl: 1 },
     ...cohortMembers.map((m, i) => ({ ...m, sl: i + 2 })),
     { ...MAIL_EXAMPLE_BOTTOM, sl: cohortMembers.length + 2 }
-  ];
+  ], [cohortMembers]);
 
   const allCount = displayRecipients.length;
   const sentCount = displayRecipients.length; // all sent in history
@@ -105,6 +163,137 @@ Online Tech Academy Bangladesh`
 
   return (
     <div className="space-y-5">
+      {/* Inbox / Program Mail tabs */}
+      <div className="inline-flex items-center gap-1 bg-white border border-[#ece9f4] rounded-xl p-1 shadow-xs">
+        <button
+          onClick={() => setTab('inbox')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            tab === 'inbox'
+              ? 'bg-[#5b21b6] text-white'
+              : 'text-[#64748b] hover:bg-[#f7f6fb]'
+          }`}
+        >
+          <Inbox className="w-3.5 h-3.5" />
+          Inbox
+          {inboxUnread > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#f5f3ff] text-[#5b21b6] text-[10px]">
+              {inboxUnread}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab('progmail')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+            tab === 'progmail'
+              ? 'bg-[#5b21b6] text-white'
+              : 'text-[#64748b] hover:bg-[#f7f6fb]'
+          }`}
+        >
+          <Mail className="w-3.5 h-3.5" />
+          Program Mail
+        </button>
+      </div>
+
+      {tab === 'inbox' && (
+        <div className="bg-white rounded-2xl border border-[#ece9f4] shadow-xs overflow-hidden">
+          <header className="p-3.5 px-4 bg-[#f7f6fb] border-b border-[#ece9f4] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Inbox className="w-4 h-4 text-[#5b21b6]" />
+              <span className="font-bold text-[#1e1b4b]">Inbox</span>
+              <span className="text-[11px] text-[#64748b]">• {inboxUnread} new • Gmail + Sheet</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={loadInbox}
+                disabled={inboxBusy}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] text-[11px] font-bold hover:bg-[#dbeafe] disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${inboxBusy ? 'animate-spin' : ''}`} />
+                Sync from Gmail
+              </button>
+              <button
+                onClick={() => markAll(false)}
+                disabled={!backendConfigured}
+                title={backendConfigured ? 'Mark every inbox mail as read' : 'Connect the backend to change read state'}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#e5e7eb] bg-white text-[#1e1b4b] text-[11px] font-bold hover:bg-[#f7f6fb] disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                Mark all as read
+              </button>
+              <button
+                onClick={() => markAll(true)}
+                disabled={!backendConfigured}
+                title={backendConfigured ? 'Mark every inbox mail as unread' : 'Connect the backend to change read state'}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#e5e7eb] bg-white text-[#1e1b4b] text-[11px] font-bold hover:bg-[#f7f6fb] disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                <MailOpen className="w-3.5 h-3.5 text-[#64748b]" />
+                Mark all as unread
+              </button>
+            </div>
+          </header>
+
+          {inboxError && (
+            <div className="p-3 px-4 bg-[#fef2f2] border-b border-[#fecaca] text-[#b91c1c] text-[11.5px] font-semibold">
+              {inboxError}
+            </div>
+          )}
+
+          <div className="max-h-[62vh] overflow-y-auto divide-y divide-[#f1f0f7]">
+            {inboxBusy && !inboxMails.length && (
+              <div className="p-10 text-center text-xs text-[#94a3b8]">Reading your Gmail inbox…</div>
+            )}
+            {!inboxBusy && !inboxMails.length && !inboxError && (
+              <div className="p-10 text-center text-xs text-[#94a3b8]">Your Gmail inbox is empty.</div>
+            )}
+            {inboxMails.map((m) => (
+              <article
+                key={m.threadId || m.subject + m.date}
+                className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-[#fbfaff] ${
+                  m.unread ? 'bg-[#fcfbff]' : ''
+                }`}
+              >
+                <span
+                  className={`mt-0.5 w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                    m.unread ? 'bg-[#5b21b6] text-white' : 'bg-[#f1f0f7] text-[#94a3b8]'
+                  }`}
+                >
+                  {m.from.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`truncate text-[12.5px] ${m.unread ? 'font-extrabold text-[#1e1b4b]' : 'font-semibold text-[#334155]'}`}>
+                      {m.from}
+                    </span>
+                    {m.unread && <span className="w-1.5 h-1.5 rounded-full bg-[#5b21b6] shrink-0" />}
+                  </div>
+                  <div className="text-[12px] font-semibold text-[#1e1b4b] truncate">{m.subject}</div>
+                  {m.snippet && (
+                    <div className="text-[11px] text-[#64748b] truncate">{m.snippet}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10.5px] text-[#94a3b8] whitespace-nowrap">{m.date}</span>
+                  <button
+                    onClick={() => markOne(m)}
+                    disabled={!backendConfigured}
+                    title={
+                      backendConfigured
+                        ? (m.unread ? 'Mark this mail as read' : 'Mark this mail as unread')
+                        : 'Connect the backend to change read state'
+                    }
+                    className="px-2 py-1 rounded-md border border-[#e5e7eb] bg-white text-[10.5px] font-bold text-[#64748b] hover:bg-[#f7f6fb] hover:text-[#5b21b6] hover:border-[#ddd6fe] disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {m.unread ? 'Mark as read' : 'Mark as unread'}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'progmail' && (
+        <>
       {/* Top Banner (As in Screenshot 3) */}
       <div className="p-4 px-6 rounded-2xl bg-gradient-to-r from-[#5b21b6] via-[#6d28d9] to-[#ea580c] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div>
@@ -416,6 +605,8 @@ Online Tech Academy Bangladesh`
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { ViewMode, Member, AttendanceRecord, ScoreRecord, PaymentItem, MailLog, SupportTicket, FileResource, AgreementItem, TaskItem, FeedbackItem } from './types';
 import { MedhaApiService } from './services/api';
 import { useAuth } from './context/AuthContext';
@@ -16,20 +16,41 @@ import { AgreementsView } from './components/views/AgreementsView';
 import { ClassesView } from './components/views/ClassesView';
 import { TasksView } from './components/views/TasksView';
 import { FeedbackView } from './components/views/FeedbackView';
-import { ScoresView } from './components/views/ScoresView';
+const ScoresView = React.lazy(() =>
+  import('./components/views/ScoresView').then((m) => ({ default: m.ScoresView }))
+);
 import { EvidenceView } from './components/views/EvidenceView';
 import { PayAdminView } from './components/views/PayAdminView';
 import { SupportView } from './components/views/SupportView';
 import { FilesView } from './components/views/FilesView';
-import { MailPortalView } from './components/views/MailPortalView';
+const MailPortalView = React.lazy(() =>
+  import('./components/views/MailPortalView').then((m) => ({ default: m.MailPortalView }))
+);
+
+const ALL_VIEWS: ViewMode[] = [
+  'overview', 'batches', 'members', 'payments', 'agreements', 'classes', 'tasks',
+  'feedback', 'scores', 'evidence', 'payadmin', 'support', 'files', 'mail',
+];
+
+/** the view the address bar is pointing at */
+const viewFromHash = (): ViewMode => {
+  const raw = (window.location.hash || '').replace(/^#\/?/, '').split('/')[0];
+  return (ALL_VIEWS as string[]).includes(raw) ? (raw as ViewMode) : 'overview';
+};
 
 export const App: React.FC = () => {
   const { user } = useAuth();
-  const [currentView, setCurrentView] = useState<ViewMode>('overview');
+  const [currentView, setCurrentView] = useState<ViewMode>(() => viewFromHash());
   const [membersBatchFilter, setMembersBatchFilter] = useState('All');
+  const [backendOnline, setBackendOnline] = useState(false);
+  const [mailBadgeCount, setMailBadgeCount] = useState(0);
+  /* scroll position of every tab, so going back lands where you left */
+  const scrollMemory = useRef<Record<string, number>>({});
 
-  // App data state
-  const [members, setMembers] = useState<Member[]>(() => MedhaApiService.getMembers());
+  // App data state — read once from storage, so every tab opens instantly
+  const [membersRaw, setMembers] = useState<Member[]>(() => MedhaApiService.getMembers());
+  /* a stable reference: a background refresh must not re-render every view */
+  const members = useMemo(() => membersRaw, [membersRaw]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => MedhaApiService.getAttendance());
   const [scores, setScores] = useState<ScoreRecord[]>(() => MedhaApiService.getScores());
   const [payments, setPayments] = useState<PaymentItem[]>(() => MedhaApiService.getPayments());
@@ -71,6 +92,71 @@ export const App: React.FC = () => {
     }
   };
 
+  /* ---------- navigation: hash routing + scroll memory ---------- */
+  const saveScrollFor = useCallback((view: ViewMode) => {
+    scrollMemory.current[view] = window.scrollY || 0;
+  }, []);
+
+  const goToView = useCallback((view: ViewMode) => {
+    if (view === currentView) return;
+    saveScrollFor(currentView);
+    setCurrentView(view);
+    const next = '#' + view;
+    if (window.location.hash !== next) {
+      window.history.pushState({ view }, '', next);
+    }
+  }, [currentView, saveScrollFor]);
+
+  useEffect(() => {
+    const onPop = () => {
+      const v = viewFromHash();
+      setCurrentView((prev) => {
+        if (prev !== v) saveScrollFor(prev);
+        return v;
+      });
+    };
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('hashchange', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('hashchange', onPop);
+    };
+  }, [saveScrollFor]);
+
+  /* restore the scroll position of the tab we come back to */
+  useEffect(() => {
+    const y = scrollMemory.current[currentView];
+    if (y) requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [currentView]);
+
+  /* ---------- the backend: check it once, then keep the dot honest ---------- */
+  const refreshBackendState = useCallback(async () => {
+    const online = await MedhaApiService.pingBackend();
+    setBackendOnline(online);
+    if (online) {
+      try {
+        const inbox = await MedhaApiService.getInboxMails();
+        setMailBadgeCount(inbox.unread);
+      } catch {
+        /* the badge stays as it is */
+      }
+    }
+    return online;
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    /* the backend check and the sheet load run in parallel */
+    refreshBackendState();
+    MedhaApiService.loadEverythingFromSheets().then((r) => {
+      if (r.ok) setMembers(r.members);
+    });
+    const id = setInterval(() => {
+      refreshBackendState();
+    }, 60000);
+    return () => clearInterval(id);
+  }, [user, refreshBackendState]);
+
   // Global export action based on current view
   const handleExport = () => {
     switch (currentView) {
@@ -104,7 +190,7 @@ export const App: React.FC = () => {
 
   const handleNavigateToMembers = (batch: string) => {
     setMembersBatchFilter(batch);
-    setCurrentView('members');
+    goToView('members');
   };
 
   // If user is not authenticated, show branded login screen
@@ -119,9 +205,9 @@ export const App: React.FC = () => {
         currentView={currentView}
         onSelectView={(view) => {
           setMembersBatchFilter('All');
-          setCurrentView(view);
+          goToView(view);
         }}
-        mailBadgeCount={10}
+        mailBadgeCount={mailBadgeCount}
         onOpenVault={() => setIsVaultOpen(true)}
         syncStatus={syncStatus}
         onSync={handleSync}
@@ -135,6 +221,7 @@ export const App: React.FC = () => {
           onExport={handleExport}
           onOpenVault={() => setIsVaultOpen(true)}
           syncStatus={syncStatus}
+          backendOnline={backendOnline}
         />
 
         {/* View Content Body */}
@@ -146,7 +233,7 @@ export const App: React.FC = () => {
               scores={scores}
               payments={payments}
               mailLogs={mailLogs}
-              onNavigate={(v) => setCurrentView(v)}
+              onNavigate={(v) => goToView(v)}
             />
           )}
 
@@ -203,10 +290,12 @@ export const App: React.FC = () => {
           )}
 
           {currentView === 'scores' && (
-            <ScoresView
-              scores={scores}
-              onRefresh={handleRefresh}
-            />
+            <Suspense fallback={<div className="p-8 text-center text-xs text-[#94a3b8]">Loading…</div>}>
+              <ScoresView
+                scores={scores}
+                onRefresh={handleRefresh}
+              />
+            </Suspense>
           )}
 
           {currentView === 'evidence' && (
@@ -241,11 +330,13 @@ export const App: React.FC = () => {
           )}
 
           {currentView === 'mail' && (
-            <MailPortalView
-              members={members}
-              mailLogs={mailLogs}
-              onRefresh={handleRefresh}
-            />
+            <Suspense fallback={<div className="p-8 text-center text-xs text-[#94a3b8]">Loading…</div>}>
+              <MailPortalView
+                members={members}
+                mailLogs={mailLogs}
+                onRefresh={handleRefresh}
+              />
+            </Suspense>
           )}
         </main>
 

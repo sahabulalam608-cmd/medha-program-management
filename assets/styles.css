@@ -482,6 +482,37 @@ body:not(.logged-in) .ws-signout { display: none; }
   letter-spacing: .08em;
   text-transform: uppercase;
 }
+/* ---- the Bangladesh clock in the top bar ---- */
+.bd-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding: 4px 11px 5px;
+  border-radius: 10px;
+  background: #faf9ff;
+  border: 1px solid #ece8fd;
+  min-width: 116px;
+  user-select: none;
+}
+.bd-time {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+.bd-date {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .export-btn {
   background: var(--text);
   color: #fff;

@@ -293,6 +293,39 @@
 .ml-time { white-space: nowrap; }
 .ml-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
 
+/* ---- mark a mail read / unread ---- */
+.ml-mark {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .14s ease, background .14s ease, color .14s ease, border-color .14s ease;
+}
+.ml-item:hover .ml-mark, .ml-mark:focus-visible { opacity: 1; }
+.ml-mark:hover { background: var(--primary-bg); color: var(--primary); border-color: #ddd6fe; }
+.ml-mark:disabled { opacity: .4; cursor: default; }
+
+/* the two "mark all" buttons under Sync from Gmail */
+.msn-group { display: flex; flex-direction: column; gap: 4px; }
+.msn.msn-action {
+  justify-content: flex-start;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: #fff;
+  border: 1px solid var(--border);
+}
+.msn.msn-action:hover:not(:disabled) { background: var(--primary-bg); color: var(--primary); border-color: #ddd6fe; }
+.msn.msn-action:disabled { opacity: .45; cursor: not-allowed; }
+
 /* --- compose drawer --- */
 .compose-drawer {
   background: #fff; border: 1px solid var(--border);
