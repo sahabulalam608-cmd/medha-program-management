@@ -4211,12 +4211,33 @@ const Api = (() => {
         cache.clear();
       }
 
-      /* Cold start: one wait for the sheet, then it is cached for next time */
+      /* Cold start: one wait for the sheet, then it is cached for next time.
+         Backend list often lacks Master File phone/address — always enrich PART-2. */
       const backend = getBackendUrl();
       if (backend) {
         try {
           const r = await backendCall("getAllMembers");
-          if (r && r.success) { writeLocalCache(r.data); return r.data; }
+          if (r && r.success && r.data) {
+            let data = r.data;
+            try {
+              const b01 = await fetchBatch01();
+              const p2old = data["NCM PART-2"] || [];
+              const m = mergeBatch01(p2old, b01);
+              data = buildMemberSet(
+                data["NCM PART-1"] || [],
+                m.p2,
+                m.source || data._p2Source,
+                m.note || data._p2Note,
+                m.fromBatch01
+              );
+            } catch (enrichErr) {
+              console.warn("Master File enrich failed", enrichErr);
+            }
+            if (p2ok(data)) {
+              writeLocalCache(data);
+              return data;
+            }
+          }
         } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
       }
       return fetchAllMembers();

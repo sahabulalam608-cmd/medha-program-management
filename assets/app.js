@@ -4015,13 +4015,6 @@ const App = (() => {
         <input class="cd-field" id="cdSubject" placeholder="Subject" />
         <textarea class="cd-textarea" id="cdBody" placeholder="Write your message… This will be sent via GmailApp.sendEmail() in Apps Script, and logged to the sheet."></textarea>
         <div class="pm-row">
-          <label style="font-size:12px;font-weight:700;color:var(--text-muted);">Send body language</label>
-          <select class="cd-field" id="cdLang" style="padding:8px 11px;">
-            <option value="en">English</option>
-            <option value="bn">Bangla</option>
-          </select>
-        </div>
-        <div class="pm-row">
           <label style="font-size:12px;font-weight:700;color:var(--text-muted);">Batch group</label>
           <select class="cd-field" id="cdGroup" style="padding:8px 11px;">
             <option value="NCM PART-1">NCM PART-1</option>
@@ -4434,12 +4427,7 @@ const App = (() => {
         </div>
 
         <div class="pm-row" style="margin-top:14px;">
-          <label>Send body language <span style="font-size:11px;color:#7c3aed;">(colors/fonts must be on THIS language)</span></label>
-          <select id="pmSendLang" style="padding:8px 11px;border-radius:8px;border:1.5px solid #e0e7ff;font-family:inherit;font-size:13px;">
-            <option value="en">English</option>
-            <option value="bn">Bangla</option>
-          </select>
-          <span style="font-size:11px;color:#64748b;margin-left:8px;">{{name}} {{memberId}} / {{member id}} {{email}} — use exact spelling</span>
+          <span style="font-size:11px;color:#64748b;">{{name}} {{memberId}} / {{member id}} {{email}} — use exact spelling. Message is taken from Bangla or English body (whichever is filled).</span>
         </div>
 
         <div class="pm-row2">
@@ -4818,7 +4806,7 @@ const App = (() => {
     document.getElementById("pmNamePreview").addEventListener("click", () => {
       const m = members[0];
       if (!m) { toast("Select a program first", "error"); return; }
-      const body = (document.getElementById("pmSendLang")?.value === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerText;
+      const body = (function(){const b=document.getElementById("pmBodyBn"),e=document.getElementById("pmBodyEn");const t=el=>(el&&(el.innerText||el.textContent)||"").trim();return (t(b)?b:(t(e)?e:b)).innerText;})();
       const html = body
         .replace(/\{\{name\}\}/g, m.name)
         .replace(/\{\{memberId\}\}/g, m.memberId)
@@ -4832,7 +4820,7 @@ const App = (() => {
     const paintMailPreview = () => {
       const bodyBox = document.getElementById("pmLpBody");
       if (!bodyBox) return;
-      const lang = document.getElementById("pmSendLang")?.value || "en";
+      const lang = "auto";
       const subject = (document.getElementById("pmSubject")?.value || "").trim();
       const editor = document.getElementById(lang === "bn" ? "pmBodyBn" : "pmBodyEn");
       let html = (editor && editor.innerHTML || "").trim();
@@ -4854,7 +4842,7 @@ const App = (() => {
         : `<div class="pm-lp-empty">Type the mail body and the preview will appear here, exactly as the member will see it.</div>`;
     };
 
-    const livePreviewInputs = ["pmSubject", "pmSendLang", "pmProgram"];
+    const livePreviewInputs = ["pmSubject", "pmProgram"];
     livePreviewInputs.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -4882,8 +4870,9 @@ const App = (() => {
     paintMailPreview();
 
     document.getElementById("pmPreview").addEventListener("click", () => {
-      const lang = document.getElementById("pmSendLang").value;
-      const html = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML;
+      const b = document.getElementById("pmBodyBn"), e = document.getElementById("pmBodyEn");
+      const t = (el) => (el && (el.innerText || el.textContent) || "").trim();
+      const html = (t(b) ? b : (t(e) ? e : b)).innerHTML;
       const w = window.open("", "_blank");
       if (!w) { toast("Pop-up blocked — allow popups to preview", "error"); return; }
       w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mail preview</title></head>
@@ -4928,10 +4917,13 @@ const App = (() => {
     document.getElementById("pmSend").addEventListener("click", async () => {
       if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
       const subject = document.getElementById("pmSubject").value.trim();
-      const lang = document.getElementById("pmSendLang").value;
-      const bodyEl = lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn");
+      const elBn = document.getElementById("pmBodyBn");
+      const elEn = document.getElementById("pmBodyEn");
+      const textOf = (el) => (el && (el.innerText || el.textContent) || "").replace(/\u00a0/g, " ").trim();
+      /* Prefer Bangla if filled, else English — no language selector */
+      let bodyEl = textOf(elBn) ? elBn : (textOf(elEn) ? elEn : elBn);
+      const bodyText = textOf(bodyEl);
       const body = (bodyEl && bodyEl.innerHTML) ? bodyEl.innerHTML.trim() : "";
-      const bodyText = (bodyEl && (bodyEl.innerText || bodyEl.textContent) || "").replace(/\u00a0/g, " ").trim();
       if (!subject || !bodyText) { toast("Subject & message required", "error"); return; }
       const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
         rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
