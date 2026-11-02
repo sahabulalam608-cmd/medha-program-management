@@ -22,6 +22,7 @@ const App = (() => {
   let state = {
     view: "overview",
     data: null,
+    dataAt: 0,
     loading: false,
     master: null,
     /* is the Apps Script backend really answering? */
@@ -865,19 +866,26 @@ const App = (() => {
 
     if (state.data && state.data._all) {
       paintNow(state.data);
-      /* quiet background refresh */
-      Api.getMembers().then((fresh) => {
-        state.data = fresh;
-        window.__mpmAll = fresh._all || [];
-        if (state.view === view) render(view, fresh);
-      }).catch(() => {});
-      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      /* Quiet background refresh — but NOT on every click. The sheet is
+         re-read only when the data has gone stale, so a tab click stays
+         instant and never waits for the network. */
+      const age = Date.now() - (state.dataAt || 0);
+      if (age > 60000) {
+        state.dataAt = Date.now();
+        Api.getMembers().then((fresh) => {
+          state.data = fresh;
+          window.__mpmAll = fresh._all || [];
+          if (state.view === view) render(view, fresh);
+        }).catch(() => {});
+        Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      }
       return;
     }
 
     renderLoading();
     try {
       const data = await Api.getMembers();
+      state.dataAt = Date.now();
       paintNow(data);
       Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
     } catch (err) {
@@ -3700,6 +3708,10 @@ const App = (() => {
               <span class="msn-label">Sent</span>
             </button>
             <button class="msn msn-sync" id="mpSyncGmail" title="Read the inbox again from Gmail">↻ Sync from Gmail</button>
+            <div class="msn-group" id="mpMarkAll" ${Api.isBackendConfigured() ? "" : 'title="Connect the backend to change read state"'}>
+              <button class="msn msn-action" id="mpMarkAllRead" ${Api.isBackendConfigured() ? "" : "disabled"}>✓ Mark all as read</button>
+              <button class="msn msn-action" id="mpMarkAllUnread" ${Api.isBackendConfigured() ? "" : "disabled"}>↺ Mark all as unread</button>
+            </div>
             <button class="msn" data-box="Archive">
               <span class="msn-ico">${ICONS.archive}</span>
               <span class="msn-label">Archive</span>
@@ -3868,6 +3880,12 @@ const App = (() => {
           <div class="ml-meta">
             <span class="ml-time">${escapeHtml(m.time || "")}</span>
             ${m.unread ? '<span class="ml-dot"></span>' : ""}
+            <button class="ml-mark" type="button"
+                    data-mail-mark="${escapeHtml(m.threadId || "")}"
+                    data-mail-state="${m.unread ? "read" : "unread"}"
+                    title="${m.unread ? "Mark this mail as read" : "Mark this mail as unread"}">
+              ${m.unread ? "Mark as read" : "Mark as unread"}
+            </button>
           </div>
         </article>
       `).join("");
@@ -3890,6 +3908,51 @@ const App = (() => {
       currentSearch = e.target.value;
       paint();
     });
+
+    /* ---- mark one mail read / unread ---- */
+    document.getElementById("mailItems")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-mail-mark]");
+      if (!btn) return;
+      e.stopPropagation();
+      if (!backend) { toast("Connect the backend to change read state", "error"); return; }
+      const threadId = btn.getAttribute("data-mail-mark");
+      const wantUnread = btn.getAttribute("data-mail-state") === "unread";
+      if (!threadId) { toast("This mail has no thread id", "error"); return; }
+      btn.disabled = true;
+      try {
+        if (wantUnread) {
+          await Api.markMailUnread(threadId);
+        } else {
+          await Api.markMailRead(threadId);
+        }
+        const list = mailList();
+        const target = list.find((x) => x.threadId === threadId);
+        if (target) target.unread = wantUnread;
+        loadMailBadge();
+        paint();
+        toast(wantUnread ? "Marked as unread" : "Marked as read", "success");
+      } catch (err) {
+        toast("Could not change the read state: " + (err && err.message ? err.message : "unknown error"), "error");
+      }
+    });
+
+    /* ---- mark every mail read / unread ---- */
+    const markAll = async (unread) => {
+      if (!backend) { toast("Connect the backend to change read state", "error"); return; }
+      try {
+        if (unread) await Api.markMailUnseen();
+        else await Api.markMailSeen();
+        const list = mailList();
+        list.forEach((m) => { m.unread = unread; });
+        loadMailBadge();
+        paint();
+        toast(unread ? "All mails marked as unread" : "All mails marked as read", "success");
+      } catch (err) {
+        toast("Could not change the read state: " + (err && err.message ? err.message : "unknown error"), "error");
+      }
+    };
+    document.getElementById("mpMarkAllRead")?.addEventListener("click", () => markAll(false));
+    document.getElementById("mpMarkAllUnread")?.addEventListener("click", () => markAll(true));
 
     /* opening the inbox means the mails have been seen — mark them read */
     document.getElementById("mailItems")?.addEventListener("click", async (e) => {
