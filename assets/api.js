@@ -225,8 +225,8 @@ const Api = (() => {
      quietly return the FIRST tab ("payment check") instead.
      "Master File" comes first — it is the one that holds the full list. */
   const BATCH01_TABS = [
-    { gid: "738811071", name: "Master File" },
-    { gid: "2071651608", name: "Members Serial" },
+    { gid: "2071651608", name: "Master File" },
+    { gid: "738811071", name: "Master File (alt)" },
     { gid: "0", name: "payment check" },
     { gid: "851131585", name: "Call Data" },
     { gid: "1421796387", name: "Task Data" },
@@ -244,17 +244,23 @@ const Api = (() => {
    *   loose     — last-resort substring match
    */
   const pickCol = (cols, priority, loose, exactOnly) => {
+    const safe = (c) => {
+      const n = normLabel(c);
+      /* Tran_id must never win the member-id column */
+      if (n.indexOf("tran") !== -1 || n.indexOf("trx") !== -1) return false;
+      return true;
+    };
     for (const p of priority) {
-      const i = cols.findIndex(c => normLabel(c) === p);
+      const i = cols.findIndex(c => safe(c) && normLabel(c) === p);
       if (i >= 0) return i;
     }
     if (exactOnly) return -1;
     for (const p of priority) {
-      const i = cols.findIndex(c => normLabel(c).indexOf(p) !== -1);
+      const i = cols.findIndex(c => safe(c) && normLabel(c).indexOf(p) !== -1);
       if (i >= 0) return i;
     }
     if (loose) {
-      const i = cols.findIndex(c => loose.some(f => normLabel(c).indexOf(f) !== -1));
+      const i = cols.findIndex(c => safe(c) && loose.some(f => normLabel(c).indexOf(f) !== -1));
       if (i >= 0) return i;
     }
     return -1;
@@ -424,7 +430,7 @@ const Api = (() => {
 
   /** Public CSV export — reliable when gviz headers are blank */
   const fetchBatch01Csv = async () => {
-    const gid = "738811071";
+    const gid = "2071651608";
     const url = `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
     try {
       const ctrl = new AbortController();
@@ -509,9 +515,30 @@ const Api = (() => {
       return hit.v;
     }
 
-    /* CSV of Master File (gid 738811071) is the source of truth for PART-2 */
+    /* Prefer gviz JSONP (CORS-safe). Primary tab: gid 2071651608 (full Member ID + phone/address). */
+    const primaryGids = [
+      { gid: "2071651608", name: "Master File" },
+      { gid: "738811071", name: "Master File (alt)" },
+    ];
+    for (const tab of primaryGids) {
+      try {
+        const data = await readGviz(BATCH01_SHEET_ID, tab.gid, 0, { timeout: 8000, retries: 1 });
+        const rows = parseMembersByHeader(data, tab.name);
+        if (rows && rows.length && rows.some(r => r.phone || r.address || r.medhaEmail || r.memberId)) {
+          const out = {
+            ok: true, rows: mergeMemberRows(rows), tab: tab.name, tabs: [tab.name],
+            sheetId: BATCH01_SHEET_ID, at: Date.now(),
+          };
+          batch01Cache = out;
+          cache.set(key, { v: out, t: Date.now() });
+          return out;
+        }
+      } catch (e) { /* try next */ }
+    }
+
+    /* CSV fallback (may fail in browser due to CORS) */
     const csvFirst = await fetchBatch01Csv();
-    if (csvFirst.ok && csvFirst.rows && csvFirst.rows.length) {
+    if (csvFirst.ok && csvFirst.rows && csvFirst.rows.length && csvFirst.rows.some(r => r.phone || r.address)) {
       batch01Cache = csvFirst;
       cache.set(key, { v: csvFirst, t: Date.now() });
       return csvFirst;

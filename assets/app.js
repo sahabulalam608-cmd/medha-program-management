@@ -3135,20 +3135,6 @@ const App = (() => {
             <div class="file-empty">
               <span class="fe-ico">&#128193;</span>
               <b>No documents yet</b>
-              <p>Upload a file or add a link to a Google Doc / Drive file.
-                Each document has <b>Open</b> and <b>Rename</b> here.
-                To <b>remove</b> a document, use the <b>⋮</b> menu (password 2026).</p>
-              <div class="fe-demo">
-                <span class="fc-ico link">${ICONS.link}</span>
-                <span class="fc-body">
-                  <span class="fc-name">A document will look like this</span>
-                  <span class="fc-sub">drive.google.com/... &middot; just now</span>
-                </span>
-                <span class="fc-actions">
-                  <a class="fc-btn" tabindex="-1" aria-hidden="true">${ICONS.external}</a>
-                  <button class="fc-btn" tabindex="-1" aria-hidden="true">${ICONS.edit}</button>
-                </span>
-              </div>
             </div>`}
         </div>
       </section>
@@ -4943,8 +4929,10 @@ const App = (() => {
       if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
       const subject = document.getElementById("pmSubject").value.trim();
       const lang = document.getElementById("pmSendLang").value;
-      const body = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML.trim();
-      if (!subject || !body) { toast("Subject & message required", "error"); return; }
+      const bodyEl = lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn");
+      const body = (bodyEl && bodyEl.innerHTML) ? bodyEl.innerHTML.trim() : "";
+      const bodyText = (bodyEl && (bodyEl.innerText || bodyEl.textContent) || "").replace(/\u00a0/g, " ").trim();
+      if (!subject || !bodyText) { toast("Subject & message required", "error"); return; }
       const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
         rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
       }));
