@@ -1148,7 +1148,7 @@ const App = (() => {
           <td class="email-cell">${escapeHtml(m.email)}</td>
           <td><span class="chip"><span class="chip-dot" style="background:${isP1 ? "#2563eb" : "#f59e0b"};"></span>${isP1 ? "Part 1" : "Part 2"}</span></td>
           <td>${statusChip(m.status)}</td>
-          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${m.sentAt ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${(m.sentAt && String(m.sentAt).trim() && String(m.sentAt).trim() !== "—") ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
           <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(prof.plan || m.plan || "—")}</td>
           <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(prof.team || m.team || "—")}</td>
           <td>${payChip(paid, pstat)}</td>
@@ -4599,7 +4599,7 @@ const App = (() => {
               </select>
             </div>
           </td>
-          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${m.sentAt ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${(m.sentAt && String(m.sentAt).trim() && String(m.sentAt).trim() !== "—") ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
         </tr>`;
       }).join("") || `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:26px;">No members match your filters</td></tr>`;
 
@@ -4839,10 +4839,65 @@ const App = (() => {
     ["pmBodyBn", "pmBodyEn"].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
+      el.setAttribute("contenteditable", "true");
+      el.style.userSelect = "text";
+      el.style.webkitUserSelect = "text";
       el.addEventListener("input", paintMailPreview);
       el.addEventListener("keyup", paintMailPreview);
-      el.addEventListener("paste", () => setTimeout(paintMailPreview, 0));
       el.addEventListener("blur", paintMailPreview);
+      /* Explicit paste — some browsers / Avro break contenteditable default paste */
+      el.addEventListener("paste", (ev) => {
+        try {
+          const cd = ev.clipboardData || window.clipboardData;
+          if (!cd) { setTimeout(paintMailPreview, 0); return; }
+          ev.preventDefault();
+          let html = "";
+          let text = "";
+          try { html = cd.getData("text/html") || ""; } catch (e1) {}
+          try { text = cd.getData("text/plain") || ""; } catch (e2) {}
+          if (html && /<(p|div|br|span|b|i|u|ul|ol|li|strong|em)\b/i.test(html)) {
+            /* strip scripts/styles only */
+            html = html.replace(/<script[\s\S]*?<\/script>/gi, "")
+                       .replace(/<style[\s\S]*?<\/style>/gi, "");
+            if (document.queryCommandSupported && document.queryCommandSupported("insertHTML")) {
+              document.execCommand("insertHTML", false, html);
+            } else {
+              el.focus();
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                const tmp = document.createElement("div");
+                tmp.innerHTML = html;
+                const frag = document.createDocumentFragment();
+                let node;
+                while ((node = tmp.firstChild)) frag.appendChild(node);
+                range.insertNode(frag);
+              } else {
+                el.innerHTML = (el.innerHTML || "") + html;
+              }
+            }
+          } else if (text) {
+            if (document.queryCommandSupported && document.queryCommandSupported("insertText")) {
+              document.execCommand("insertText", false, text);
+            } else {
+              el.focus();
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(document.createTextNode(text));
+                range.collapse(false);
+              } else {
+                el.textContent = (el.textContent || "") + text;
+              }
+            }
+          }
+        } catch (err) {
+          /* fall through to default if something fails */
+        }
+        setTimeout(paintMailPreview, 0);
+      });
       try {
         const mo = new MutationObserver(() => paintMailPreview());
         mo.observe(el, { childList: true, subtree: true, characterData: true });
@@ -4918,7 +4973,7 @@ const App = (() => {
           <div id="pmConfirmHint" style="font-size:12px;color:#7c3aed;font-weight:600;margin-bottom:14px;">Wait 3 seconds…</div>
           <div style="display:flex;gap:10px;justify-content:flex-end;">
             <button type="button" id="pmConfirmCancel" style="padding:9px 16px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>
-            <button type="button" id="pmConfirmOk" disabled style="padding:9px 16px;border-radius:10px;border:none;background:#c4b5fd;color:#fff;font-weight:700;cursor:not-allowed;font-family:inherit;">Submit</button>
+            <button type="button" id="pmConfirmOk" disabled style="padding:9px 16px;border-radius:10px;border:none;background:#c4b5fd;color:#fff;font-weight:700;cursor:not-allowed;font-family:inherit;">Send</button>
           </div>
         </div>`;
       document.body.appendChild(modal);
@@ -4930,7 +4985,7 @@ const App = (() => {
         bar.style.width = ((3 - left) / 3 * 100) + "%";
         if (left <= 0) {
           bar.style.width = "100%";
-          hint.textContent = "Ready — press Submit to send";
+          hint.textContent = "";
           ok.disabled = false;
           ok.style.background = "#5b21b6";
           ok.style.cursor = "pointer";
@@ -5058,7 +5113,8 @@ const App = (() => {
             try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
           }
           showSendResult(r || {}, recipients.length);
-          try { document.getElementById("pmRefresh").click(); } catch (e) {}
+          /* Keep local Last Sent — full refresh was wiping timestamps from sheet lag */
+          try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
           if (backend) {
             Api.getQuota?.().then?.(q => {
               if (q && q.remaining != null) {
@@ -5095,16 +5151,21 @@ const App = (() => {
 
     // quota
     if (backend) {
-      Api.getQuota?.().then?.(r => {
-        const rem = (r && (r.remaining != null ? r.remaining : r.quota));
+      const applyQuota = (r) => {
+        const rem = r && (r.remaining != null ? r.remaining : (r.quota != null ? r.quota : null));
         if (rem != null && rem !== "") {
           setStat("pmQuota", rem);
           const t = document.getElementById("pmQuotaText");
-          if (t) t.textContent = "Left: " + rem + " · Free ~ " + ((r && r.estimatedFreeAt) || "—");
+          if (t) t.textContent = "Left: " + rem + (r.estimatedFreeAt ? (" · Free ~ " + r.estimatedFreeAt) : "");
         } else {
           setStat("pmQuota", "—");
+          const t = document.getElementById("pmQuotaText");
+          if (t) t.textContent = (r && r.message) ? String(r.message).slice(0, 80) : "Left: — (check backend Deploy / Gmail permission)";
         }
-      }).catch?.(() => { setStat("pmQuota", "—"); });
+      };
+      Api.getQuota().then(applyQuota).catch(() => applyQuota(null));
+      /* second try after 1.2s in case first race with backend URL */
+      setTimeout(() => { Api.getQuota().then(applyQuota).catch(() => {}); }, 1200);
     }
     document.getElementById("pmWatcher").textContent = new Date().toLocaleString("en-GB");
 

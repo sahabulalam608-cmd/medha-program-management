@@ -483,6 +483,7 @@
   min-height: 150px; max-height: 280px; overflow: auto; padding: 12px 14px;
   border: 1.5px solid #e0e7ff; border-radius: 12px; background: #fff;
   font-size: 14px; line-height: 1.6; outline: none; color: var(--text);
+  user-select: text; -webkit-user-select: text; caret-color: #5b21b6;
 }
 .pm-editor:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.12); }
 .pm-editor:empty:before { content: attr(data-placeholder); color: #94a3b8; }

@@ -4845,14 +4845,19 @@ const Api = (() => {
     sendMail: async (payload) => backendCall("sendProgramMails", { payload }),
 
     getQuota: async () => {
-      if (!getBackendUrl()) return { remaining: null };
+      if (!getBackendUrl()) return { remaining: null, message: "Backend not connected" };
       try {
-        const r = await backendCall("getEmailQuota", {});
+        let r = await backendCall("getEmailQuota", {});
+        if (!r || (r.remaining == null && r.success === false)) {
+          try { r = await backendCall("getQuota", {}); } catch (e2) {}
+        }
         if (!r) return { remaining: null };
         if (r.remaining != null) return r;
-        if (r.data && r.data.remaining != null) return r.data;
+        if (r.data && r.data.remaining != null) return { ...r, remaining: r.data.remaining };
         return r;
-      } catch { return { remaining: null }; }
+      } catch (e) {
+        return { remaining: null, message: String((e && e.message) || e) };
+      }
     },
 
     /** Email history log (from EmailLog sheet) */
