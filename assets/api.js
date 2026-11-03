@@ -225,8 +225,8 @@ const Api = (() => {
      quietly return the FIRST tab ("payment check") instead.
      "Master File" comes first — it is the one that holds the full list. */
   const BATCH01_TABS = [
-    { gid: "2071651608", name: "Master File" },
-    { gid: "738811071", name: "Master File (alt)" },
+    { gid: "738811071", name: "Master File" },
+    { gid: "2071651608", name: "Members Serial" },
     { gid: "0", name: "payment check" },
     { gid: "851131585", name: "Call Data" },
     { gid: "1421796387", name: "Task Data" },
@@ -244,23 +244,17 @@ const Api = (() => {
    *   loose     — last-resort substring match
    */
   const pickCol = (cols, priority, loose, exactOnly) => {
-    const safe = (c) => {
-      const n = normLabel(c);
-      /* Tran_id must never win the member-id column */
-      if (n.indexOf("tran") !== -1 || n.indexOf("trx") !== -1) return false;
-      return true;
-    };
     for (const p of priority) {
-      const i = cols.findIndex(c => safe(c) && normLabel(c) === p);
+      const i = cols.findIndex(c => normLabel(c) === p);
       if (i >= 0) return i;
     }
     if (exactOnly) return -1;
     for (const p of priority) {
-      const i = cols.findIndex(c => safe(c) && normLabel(c).indexOf(p) !== -1);
+      const i = cols.findIndex(c => normLabel(c).indexOf(p) !== -1);
       if (i >= 0) return i;
     }
     if (loose) {
-      const i = cols.findIndex(c => safe(c) && loose.some(f => normLabel(c).indexOf(f) !== -1));
+      const i = cols.findIndex(c => loose.some(f => normLabel(c).indexOf(f) !== -1));
       if (i >= 0) return i;
     }
     return -1;
@@ -429,81 +423,19 @@ const Api = (() => {
 
 
   /** Public CSV export — reliable when gviz headers are blank */
-  const fetchBatch01Csv = async () => {
-    const gid = "2071651608";
-    const url = `https://docs.google.com/spreadsheets/d/${BATCH01_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
+  /* Read the "Master File" tab of the Batch-01 sheet.
+     It must go through the JSONP reader (readGviz) — a plain fetch to the
+     CSV address is blocked by the browser's CORS rule, which is why the
+     details used to come up empty. */
+  const fetchBatch01Master = async () => {
+    const gid = "738811071";
     try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
-      clearTimeout(t);
-      if (!res.ok) throw new Error("CSV " + res.status);
-      const text = await res.text();
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) throw new Error("CSV empty");
-      /* naive CSV split that handles quotes */
-      const split = (line) => {
-        const out = []; let cur = ""; let q = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') { q = !q; continue; }
-          if (ch === "," && !q) { out.push(cur); cur = ""; continue; }
-          cur += ch;
-        }
-        out.push(cur);
-        return out.map(s => s.trim());
-      };
-      const headers = split(lines[0]).map(h => h.replace(/^"|"$/g, "").trim());
-      const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const hNorm = headers.map(norm);
-      const find = (...keys) => {
-        for (const k of keys) {
-          const i = hNorm.indexOf(norm(k));
-          if (i >= 0) return i;
-        }
-        for (const k of keys) {
-          const i = hNorm.findIndex(h => h.includes(norm(k)));
-          if (i >= 0) return i;
-        }
-        return -1;
-      };
-      const iName = find("name");
-      const iEmail = find("email");
-      const iCourse = find("coursemail", "course mail");
-      const iPhone = find("phone", "mobile");
-      const iWa = find("whatsapp", "whatsapp");
-      const iAddr = find("address");
-      const iFb = find("facebook", "fb");
-      const iMedha = find("medhaemail", "medha_email", "medha email");
-      const iTran = find("tranid", "tran_id", "transactionid");
-      if (iName < 0 && iEmail < 0) throw new Error("CSV headers missing");
-      const rows = [];
-      for (let r = 1; r < lines.length; r++) {
-        const cols = split(lines[r]).map(c => c.replace(/^"|"$/g, "").trim());
-        const name = iName >= 0 ? cols[iName] || "" : "";
-        const email = iEmail >= 0 ? cols[iEmail] || "" : "";
-        if (!name && !email) continue;
-        const n = String(r);
-        rows.push({
-          sl: cols[0] || String(r),
-          memberId: "NCM-P2-" + (n.length < 2 ? "0" + n : n),
-          name, email,
-          status: "", sentAt: "",
-          phone: iPhone >= 0 ? bdPhone(cols[iPhone]) : "",
-          whatsapp: iWa >= 0 ? bdPhone(cols[iWa]) : "",
-          address: iAddr >= 0 ? (cols[iAddr] || "") : "",
-          facebook: iFb >= 0 ? (cols[iFb] || "") : "",
-          medhaEmail: iMedha >= 0 ? (cols[iMedha] || "") : "",
-          courseMail: iCourse >= 0 ? (cols[iCourse] || "") : "",
-          tranId: iTran >= 0 ? (cols[iTran] || "") : "",
-          _row: r + 1,
-          _tab: "Members NCM-P2",
-          _src: "Master File CSV",
-        });
-      }
+      const data = await readGviz(BATCH01_SHEET_ID, gid, 0, { timeout: 9000, retries: 1 });
+      const rows = parseMembersByHeader(data, "Master File");
+      if (!rows || !rows.length) throw new Error("No member rows in the Master File");
       return { ok: true, rows, tab: "Master File", tabs: ["Master File"], sheetId: BATCH01_SHEET_ID, at: Date.now() };
     } catch (e) {
-      return { ok: true, rows: BATCH01_MASTER_MEMBERS, tab: "Master File", tabs: ["Master File"], sheetId: BATCH01_SHEET_ID, at: Date.now() };
+      return { ok: false, rows: null, error: String((e && e.message) || e), at: Date.now() };
     }
   };
 
@@ -515,33 +447,12 @@ const Api = (() => {
       return hit.v;
     }
 
-    /* Prefer gviz JSONP (CORS-safe). Primary tab: gid 2071651608 (full Member ID + phone/address). */
-    const primaryGids = [
-      { gid: "2071651608", name: "Master File" },
-      { gid: "738811071", name: "Master File (alt)" },
-    ];
-    for (const tab of primaryGids) {
-      try {
-        const data = await readGviz(BATCH01_SHEET_ID, tab.gid, 0, { timeout: 8000, retries: 1 });
-        const rows = parseMembersByHeader(data, tab.name);
-        if (rows && rows.length && rows.some(r => r.phone || r.address || r.medhaEmail || r.memberId)) {
-          const out = {
-            ok: true, rows: mergeMemberRows(rows), tab: tab.name, tabs: [tab.name],
-            sheetId: BATCH01_SHEET_ID, at: Date.now(),
-          };
-          batch01Cache = out;
-          cache.set(key, { v: out, t: Date.now() });
-          return out;
-        }
-      } catch (e) { /* try next */ }
-    }
-
-    /* CSV fallback (may fail in browser due to CORS) */
-    const csvFirst = await fetchBatch01Csv();
-    if (csvFirst.ok && csvFirst.rows && csvFirst.rows.length && csvFirst.rows.some(r => r.phone || r.address)) {
-      batch01Cache = csvFirst;
-      cache.set(key, { v: csvFirst, t: Date.now() });
-      return csvFirst;
+    /* The Master File (gid 738811071) is the source of truth for PART-2 */
+    const masterFirst = await fetchBatch01Master();
+    if (masterFirst.ok && masterFirst.rows && masterFirst.rows.length) {
+      batch01Cache = masterFirst;
+      cache.set(key, { v: masterFirst, t: Date.now() });
+      return masterFirst;
     }
 
     /* the known tabs first (Master File leads), then anything new */
@@ -581,14 +492,8 @@ const Api = (() => {
       cache.set(key, { v: out, t: Date.now() });
       return out;
     }
-    /* gviz failed — public CSV of Master File (gid 738811071) */
-    const csv = await fetchBatch01Csv();
-    if (csv.ok && csv.rows && csv.rows.length) {
-      batch01Cache = csv;
-      cache.set(key, { v: csv, t: Date.now() });
-      return csv;
-    }
-    const out = { ok: false, rows: null, error: (csv && csv.error) || "Member list not found in the spreadsheet", at: Date.now() };
+    /* the sheet could not be read — say so instead of showing made-up rows */
+    const out = { ok: false, rows: null, error: (masterFirst && masterFirst.error) || "Member list not found in the spreadsheet", at: Date.now() };
     batch01Cache = out;
     cache.set(key, { v: out, t: Date.now() });
     return out;
@@ -4211,33 +4116,12 @@ const Api = (() => {
         cache.clear();
       }
 
-      /* Cold start: one wait for the sheet, then it is cached for next time.
-         Backend list often lacks Master File phone/address — always enrich PART-2. */
+      /* Cold start: one wait for the sheet, then it is cached for next time */
       const backend = getBackendUrl();
       if (backend) {
         try {
           const r = await backendCall("getAllMembers");
-          if (r && r.success && r.data) {
-            let data = r.data;
-            try {
-              const b01 = await fetchBatch01();
-              const p2old = data["NCM PART-2"] || [];
-              const m = mergeBatch01(p2old, b01);
-              data = buildMemberSet(
-                data["NCM PART-1"] || [],
-                m.p2,
-                m.source || data._p2Source,
-                m.note || data._p2Note,
-                m.fromBatch01
-              );
-            } catch (enrichErr) {
-              console.warn("Master File enrich failed", enrichErr);
-            }
-            if (p2ok(data)) {
-              writeLocalCache(data);
-              return data;
-            }
-          }
+          if (r && r.success) { writeLocalCache(r.data); return r.data; }
         } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
       }
       return fetchAllMembers();
@@ -4826,13 +4710,9 @@ const Api = (() => {
 
     /** Mark one thread as unread again */
     markMailUnread: async (threadId) => {
-      if (!getBackendUrl() || !threadId) return { success: false, message: "No backend or threadId" };
-      try {
-        const r = await backendCall("markMailUnread", { threadId });
-        return r || { success: false, message: "Empty response" };
-      } catch (e) {
-        return { success: false, message: String((e && e.message) || e) };
-      }
+      if (!getBackendUrl() || !threadId) return { success: false };
+      try { return await backendCall("markMailUnread", { threadId }); }
+      catch { return { success: false }; }
     },
 
     /** Mark every inbox mail as unread again */
@@ -4845,23 +4725,9 @@ const Api = (() => {
     sendMail: async (payload) => backendCall("sendProgramMails", { payload }),
 
     getQuota: async () => {
-      if (!getBackendUrl()) return { remaining: null, message: "Backend not connected" };
-      try {
-        let r = await backendCall("getEmailQuota", {});
-        if (!r || (r.remaining == null && !r.success)) {
-          try { r = await backendCall("getQuota", {}); } catch (e2) {}
-        }
-        if (!r) return { remaining: null, message: "Empty response from backend" };
-        /* Apps Script sometimes returns {success:false, message:"Exception: ..."} */
-        if (r.remaining == null && (r.message || r.error)) {
-          return { remaining: null, message: String(r.message || r.error) };
-        }
-        if (r.remaining != null) return r;
-        if (r.data && r.data.remaining != null) return Object.assign({}, r, { remaining: r.data.remaining });
-        return r;
-      } catch (e) {
-        return { remaining: null, message: String((e && e.message) || e) };
-      }
+      if (!getBackendUrl()) return { remaining: null };
+      try { return await backendCall("getEmailQuota", {}); }
+      catch { return { remaining: null }; }
     },
 
     /** Email history log (from EmailLog sheet) */
