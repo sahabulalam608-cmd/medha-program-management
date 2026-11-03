@@ -109,6 +109,7 @@ function handleApi_(action, data) {
     case "sendProgramMails": return sendProgramMails(data.payload || data);
     case "getEmailLogs": return getEmailLogs(data.limit || 40);
     case "getEmailQuota": return getEmailQuota();
+    case "getQuota": return getEmailQuota();
     case "getMailBadge": return getMailBadge(data.withList === true);
     case "ping": return {
       success: true,
@@ -120,6 +121,8 @@ function handleApi_(action, data) {
     case "markMailSeen": return markMailSeen();
     case "markMailRead": return markMailRead(data.threadId);
     case "markMailUnread": return markMailUnread(data.threadId);
+    case "getMailBody": return getMailBody(data.threadId);
+    case "sendMail": return sendProgramMails(data.payload || data);
     case "setupGmail": return setupGmail();
     case "markMailUnseen": return markMailUnseen();
     case "fetchLogMailBody": return fetchLogMailBody(data.subject || "", data.recipient || "");
@@ -183,13 +186,21 @@ function normHeader_(v) {
 
 /** find a column index by header name (exact first, then "contains") */
 function pickCol_(headers, priority, loose) {
+  function safeHeader(h) {
+    var n = normHeader_(h);
+    /* Tran_id / TrxID must never win the member-id column */
+    if (n.indexOf("tran") !== -1 || n.indexOf("trx") !== -1) return false;
+    return true;
+  }
   for (var i = 0; i < priority.length; i++) {
     for (var j = 0; j < headers.length; j++) {
+      if (!safeHeader(headers[j]) && priority[i] === "id") continue;
       if (normHeader_(headers[j]) === priority[i]) return j;
     }
   }
   for (var i = 0; i < priority.length; i++) {
     for (var j = 0; j < headers.length; j++) {
+      if (!safeHeader(headers[j]) && (priority[i] === "id" || priority[i].indexOf("id") !== -1)) continue;
       if (normHeader_(headers[j]).indexOf(priority[i]) !== -1) return j;
     }
   }
@@ -558,7 +569,15 @@ function sendProgramMails(payload) {
     if (!recipients.length) return { success: false, message: "No recipients", sent: 0 };
 
     var subject = payload.subject || "Message from Medha";
-    var built = buildProgramEmailHtml_(payload.bodyHtml || payload.body || "", payload.bannerMode || "none", "", "", null, null, payload.includeAutoNote !== false);
+    var built = buildProgramEmailHtml_(
+      payload.bodyHtml || payload.body || "",
+      payload.bannerMode || "previous",
+      payload.bannerUrl || payload.customBannerUrl || "",
+      payload.footerUrl || payload.customFooterUrl || "",
+      payload.bannerBase64 || null,
+      payload.footerBase64 || null,
+      payload.includeAutoNote !== false
+    );
 
     var sent = 0, failed = [];
     for (var i = 0; i < recipients.length; i++) {
@@ -568,7 +587,6 @@ function sendProgramMails(payload) {
       try {
         GmailApp.sendEmail(to, subject, "", {
           htmlBody: personalizeBody_(built.html, rec),
-          from: CONFIG.FROM_NAME,
           name: CONFIG.FROM_NAME,
         });
         sent++;
@@ -578,12 +596,14 @@ function sendProgramMails(payload) {
           var sheet = getProgramSheet_(payload.program || "");
           if (sheet && rec.rowIndex) {
             var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+            var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Asia/Dhaka", "dd-MM-yyyy HH:mm:ss");
             for (var h = 0; h < headers.length; h++) {
-              if (String(headers[h]).toLowerCase() === "status") sheet.getRange(rec.rowIndex, h + 1).setValue("Sent");
-              if (String(headers[h]).toLowerCase().replace(/\s/g, "") === "sentat") {
-                sheet.getRange(rec.rowIndex, h + 1).setValue(
-                  Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd-MM-yyyy HH:mm:ss")
-                );
+              var hn = String(headers[h] || "").toLowerCase().replace(/\s/g, "");
+              if (hn === "status" || hn === "mailstatus") {
+                sheet.getRange(rec.rowIndex, h + 1).setValue("Sent");
+              }
+              if (hn === "sentat" || hn === "lastsent" || hn === "lastsentat" || hn === "sent" || hn.indexOf("sentat") !== -1) {
+                sheet.getRange(rec.rowIndex, h + 1).setValue(stamp);
               }
             }
           }
@@ -713,10 +733,16 @@ function getMailBadge(withList) {
 /** Mark one thread as unread (the portal calls this from the inbox) */
 function markMailUnread(threadId) {
   try {
-    var t = GmailApp.getThreadById(threadId);
+    if (!threadId) return { success: false, message: "No threadId" };
+    var t = GmailApp.getThreadById(String(threadId));
     if (!t) return { success: false, message: "Thread not found" };
     t.markUnread();
-    return { success: true, threadId: threadId };
+    /* also mark the latest message unread for clients that only look at messages */
+    try {
+      var msgs = t.getMessages();
+      if (msgs && msgs.length) msgs[msgs.length - 1].markUnread();
+    } catch (e2) {}
+    return { success: true, threadId: String(threadId) };
   } catch (e) {
     return { success: false, message: String((e && e.message) || e) };
   }
@@ -732,6 +758,39 @@ function markMailRead(threadId) {
     return { success: false, message: String((e && e.message) || e) };
   }
 }
+
+
+/** Full plain-text body of the latest message in a Gmail thread (Inbox expand) */
+function getMailBody(threadId) {
+  try {
+    if (!threadId) return { success: false, body: "", message: "No threadId" };
+    var t = GmailApp.getThreadById(String(threadId));
+    if (!t) return { success: false, body: "", message: "Thread not found" };
+    var msgs = t.getMessages();
+    if (!msgs || !msgs.length) return { success: false, body: "", message: "No messages" };
+    var msg = msgs[msgs.length - 1];
+    var plain = "";
+    try { plain = msg.getPlainBody() || ""; } catch (e1) {}
+    if (!plain) {
+      try {
+        var html = msg.getBody() || "";
+        plain = html.replace(/<style[\s\S]*?<\/style>/gi, " ")
+                    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+                    .replace(/<[^>]+>/g, " ")
+                    .replace(/&nbsp;/g, " ")
+                    .replace(/&amp;/g, "&")
+                    .replace(/&lt;/g, "<")
+                    .replace(/&gt;/g, ">")
+                    .replace(/\s+/g, " ")
+                    .trim();
+      } catch (e2) {}
+    }
+    return { success: true, body: plain || msg.getSnippet() || "", threadId: String(threadId) };
+  } catch (e) {
+    return { success: false, body: "", message: String((e && e.message) || e) };
+  }
+}
+
 
 /** Run this once so Apps Script asks for permission to read Gmail.
     (Without it the inbox cannot be read at all.) */
@@ -809,16 +868,21 @@ function getEmailQuota() {
   try {
     var remaining = MailApp.getRemainingDailyQuota();
     var now = new Date();
+    var tz = Session.getScriptTimeZone() || "Asia/Dhaka";
     var estFree = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     return {
       success: true,
       remaining: remaining,
-      checkedAt: Utilities.formatDate(now, Session.getScriptTimeZone(), "dd-MM-yyyy HH:mm:ss"),
-      estimatedFreeAt: Utilities.formatDate(estFree, Session.getScriptTimeZone(), "dd-MM-yyyy HH:mm:ss"),
+      checkedAt: Utilities.formatDate(now, tz, "dd-MM-yyyy HH:mm:ss"),
+      estimatedFreeAt: Utilities.formatDate(estFree, tz, "dd-MM-yyyy HH:mm:ss"),
       message: "Quota left: " + remaining
     };
   } catch (e) {
-    return { success: false, remaining: null, message: String(e) };
+    return {
+      success: false,
+      remaining: null,
+      message: String((e && e.message) || e)
+    };
   }
 }
 
@@ -932,26 +996,83 @@ function setupProgramSheets() {
 
 function buildProgramEmailHtml_(bodyHtml, bannerMode, customBannerUrl, customFooterUrl, bannerBase64, footerBase64, includeAutoNote) {
   if (includeAutoNote === undefined) includeAutoNote = true;
+  bannerMode = String(bannerMode || "previous").toLowerCase();
+
+  /* Default branded BANNER / HEADER (top of email) — OTA + Medha */
+  var DEFAULT_BANNER =
+    "https://medha-program-management.pages.dev/assets/img/mail-footer.png";
+
+  function toImgUrl_(url) {
+    url = String(url || "").trim();
+    if (!url) return "";
+    var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return "https://drive.google.com/uc?export=view&id=" + m[1];
+    m = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (m) return "https://drive.google.com/uc?export=view&id=" + m[1];
+    return url;
+  }
+
+  var bannerUrl = "";
+  if (bannerMode === "none") {
+    bannerUrl = "";
+  } else if (bannerMode === "custom") {
+    bannerUrl = toImgUrl_(customBannerUrl) || DEFAULT_BANNER;
+  } else {
+    bannerUrl = toImgUrl_(customBannerUrl) || DEFAULT_BANNER;
+  }
+
+  var bannerImgHtml = "";
+  if (bannerBase64) {
+    bannerImgHtml =
+      '<img src="data:image/png;base64,' + bannerBase64 +
+      '" width="600" alt="Online Tech Academy | Medha" ' +
+      'style="display:block;width:100%;max-width:600px;height:auto;border:0;" />';
+  } else if (bannerUrl) {
+    bannerImgHtml =
+      '<img src="' + bannerUrl + '" width="600" alt="Online Tech Academy | Medha" ' +
+      'style="display:block;width:100%;max-width:600px;height:auto;border:0;" />';
+  }
+
+  /* Footer image only if user supplies a custom footer URL/base64 */
+  var footerImgHtml = "";
+  if (footerBase64) {
+    footerImgHtml =
+      '<img src="data:image/png;base64,' + footerBase64 +
+      '" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />';
+  } else if (customFooterUrl) {
+    var fu = toImgUrl_(customFooterUrl);
+    if (fu) {
+      footerImgHtml =
+        '<img src="' + fu + '" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0;" />';
+    }
+  }
+
   var autoNote = includeAutoNote
     ? '<p style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;font-style:italic;">This is an automated email. Please do not reply.</p>'
     : "";
+
   var html =
-    '<!DOCTYPE html><html><head><meta charset="UTF-8" /></head>' +
-    '<body style="margin:0;padding:0;background:#f5f3ff;font-family:Arial,sans-serif;">' +
+    '<!DOCTYPE html><html><head><meta charset="UTF-8" />' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1" /></head>' +
+    '<body style="margin:0;padding:0;background:#f5f3ff;font-family:Arial,Helvetica,sans-serif;">' +
     '<div style="padding:24px 12px;background:#f5f3ff;">' +
-      '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">' +
-      '<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">' +
+      '<table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center">' +
+      '<table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">' +
+        (bannerImgHtml
+          ? '<tr><td style="padding:0;line-height:0;font-size:0;">' + bannerImgHtml + "</td></tr>"
+          : "") +
         '<tr><td style="padding:28px 32px;font-size:15px;line-height:1.7;color:#1e1b4b;">' +
           (bodyHtml || "") + autoNote +
-        '</td></tr>' +
+        "</td></tr>" +
+        (footerImgHtml
+          ? '<tr><td style="padding:0;line-height:0;font-size:0;">' + footerImgHtml + "</td></tr>"
+          : "") +
         '<tr><td style="padding:14px 20px;text-align:center;font-size:11px;color:#9ca3af;background:#faf8ff;">© ' +
-          new Date().getFullYear() + ' Online Tech Academy | Medha Program</td></tr>' +
-      '</table></td></tr></table>' +
-    '</div></body></html>';
-  return { html: html, inline: {} };
+          new Date().getFullYear() + " Online Tech Academy | Medha Program</td></tr>" +
+      "</table></td></tr></table>" +
+    "</div></body></html>";
+  return { html: html, inline: {}, bannerUrl: bannerUrl };
 }
-
-/* ========== Schedules (basic) ========== */
 
 function scheduleProgramMail(payload) {
   try {

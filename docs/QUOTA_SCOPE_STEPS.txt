@@ -1,0 +1,15 @@
+QUOTA FIX — appsscript.json (required scopes)
+============================================
+Error means Mail permission scope is missing from the project.
+
+1) script.google.com → your project
+2) Left gear: Project Settings
+3) Tick: "Show appsscript.json manifest file in editor"
+4) Left file list → open appsscript.json
+5) Select ALL → paste the appsscript.json from this zip → Save
+6) Code.gs → select getEmailQuota → Run → Review permissions → Allow
+7) Deploy → Manage deployments → Edit → New version → Deploy
+8) Site: Ctrl+Shift+R
+
+Example Last Sent (2 test emails):
+- Yes — only shows after you Send again (then it is remembered in the browser).
