@@ -4410,7 +4410,7 @@ const App = (() => {
         <div class="pm-row">
           <label>Subject *</label>
           <div class="pm-input-row">
-            <input type="text" id="pmSubject" value="Medha Program — Welcome &amp; Orientation Schedule (October 2026)" placeholder="Email subject" />
+            <input type="text" id="pmSubject" placeholder="Email subject" />
             <button class="pm-chip-btn" id="pmAiSubject">✨ AI Subject</button>
           </div>
         </div>
@@ -4428,7 +4428,7 @@ const App = (() => {
           <div class="pm-editor-label">
             <span>Message</span>
           </div>
-          <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write your message here…">আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ,\n\nঅনুগ্রহ করে আপনার নিজের মেম্বার আইডি ও ইমেইল ঠিক আছে কিনা দেখে নিন। ক্লাসের সময়, লাইভ সেশন ও কোর্স ম্যাটেরিয়াল নিয়ে প্রয়োজনীয় আপডেট পরবর্তী ইমেইলে পাঠানো হবে।\n\nসুন্দর শুভেচ্ছা,\nঅনলাইন টেক একাডেমি বাংলাদেশ</div>
+          <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write your message here…"></div>
           <div id="pmBodyEn" contenteditable="true" class="pm-editor" style="display:none;" aria-hidden="true"></div>
           <div class="pm-fmt-bar">
             <button class="pm-fmt" data-fmt="bold" data-lang="bn"><b>B</b></button>
