@@ -4848,12 +4848,16 @@ const Api = (() => {
       if (!getBackendUrl()) return { remaining: null, message: "Backend not connected" };
       try {
         let r = await backendCall("getEmailQuota", {});
-        if (!r || (r.remaining == null && r.success === false)) {
+        if (!r || (r.remaining == null && !r.success)) {
           try { r = await backendCall("getQuota", {}); } catch (e2) {}
         }
-        if (!r) return { remaining: null };
+        if (!r) return { remaining: null, message: "Empty response from backend" };
+        /* Apps Script sometimes returns {success:false, message:"Exception: ..."} */
+        if (r.remaining == null && (r.message || r.error)) {
+          return { remaining: null, message: String(r.message || r.error) };
+        }
         if (r.remaining != null) return r;
-        if (r.data && r.data.remaining != null) return { ...r, remaining: r.data.remaining };
+        if (r.data && r.data.remaining != null) return Object.assign({}, r, { remaining: r.data.remaining });
         return r;
       } catch (e) {
         return { remaining: null, message: String((e && e.message) || e) };

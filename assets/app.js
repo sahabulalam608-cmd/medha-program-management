@@ -4612,6 +4612,31 @@ const App = (() => {
       });
     };
 
+
+    /* Example rows are not in the sheet — remember their Last Sent in this browser */
+    const EX_SENT_KEY = "mpm.example.lastSent";
+    const readExSent = () => {
+      try { return JSON.parse(localStorage.getItem(EX_SENT_KEY) || "{}") || {}; }
+      catch (e) { return {}; }
+    };
+    const writeExSent = (map) => {
+      try { localStorage.setItem(EX_SENT_KEY, JSON.stringify(map || {})); } catch (e) {}
+    };
+    const rememberExSent = (email, memberId, stamp) => {
+      const map = readExSent();
+      const t = String(stamp || "").trim();
+      if (!t || t === "—") return;
+      if (email) map["e:" + String(email).toLowerCase()] = t;
+      if (memberId) map["id:" + String(memberId)] = t;
+      writeExSent(map);
+    };
+    const lookupExSent = (email, memberId) => {
+      const map = readExSent();
+      return (memberId && map["id:" + String(memberId)])
+        || (email && map["e:" + String(email).toLowerCase()])
+        || "";
+    };
+
     const loadProgram = (p, force) => {
       program = p;
       if (!p) {
@@ -4642,7 +4667,7 @@ const App = (() => {
         name: "Md Sahabul Alam",
         email: "sahabulota@gmail.com",
         status: "Sent",
-        sentAt: "—",
+        sentAt: lookupExSent("sahabulota@gmail.com", "NCM- 101 ( Example )") || "—",
         _example: true,
         _tab: p
       };
@@ -4652,7 +4677,7 @@ const App = (() => {
         name: "Md Ahsan",
         email: "howladerahsan@gmail.com",
         status: "Sent",
-        sentAt: "—",
+        sentAt: lookupExSent("howladerahsan@gmail.com", "NCM-P2-0101002 ( Example )") || "—",
         _example: true,
         _tab: p
       };
@@ -4681,7 +4706,7 @@ const App = (() => {
           name: "Md Sahabul Alam",
           email: "sahabulota@gmail.com",
           status: "Sent",
-          sentAt: "—",
+          sentAt: lookupExSent("sahabulota@gmail.com", "NCM- 101 ( Example )") || "—",
           _example: true,
           _tab: p
         };
@@ -4691,7 +4716,7 @@ const App = (() => {
           name: "Md Ahsan",
           email: "howladerahsan@gmail.com",
           status: "Sent",
-          sentAt: "—",
+          sentAt: lookupExSent("howladerahsan@gmail.com", "NCM-P2-0101002 ( Example )") || "—",
           _example: true,
           _tab: p
         };
@@ -5108,6 +5133,15 @@ const App = (() => {
                 m.status = "Sent";
                 m.sentAt = localStamp;
                 decision[m.memberId] = "Sent";
+                if (m._example || /example/i.test(String(m.memberId || ""))) {
+                  rememberExSent(m.email, m.memberId, localStamp);
+                }
+                /* also remember by recipient email for the two fixed test inboxes */
+                if (email === "sahabulota@gmail.com" || email === "howladerahsan@gmail.com") {
+                  rememberExSent(email, m.memberId, localStamp);
+                }
+              } else if (email === "sahabulota@gmail.com" || email === "howladerahsan@gmail.com") {
+                rememberExSent(email, null, localStamp);
               }
             });
             try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
@@ -5160,7 +5194,12 @@ const App = (() => {
         } else {
           setStat("pmQuota", "—");
           const t = document.getElementById("pmQuotaText");
-          if (t) t.textContent = (r && r.message) ? String(r.message).slice(0, 80) : "Left: — (check backend Deploy / Gmail permission)";
+          const msg = (r && r.message) ? String(r.message).replace(/^Exception:\s*/i, "") : "";
+          if (t) {
+            t.textContent = msg
+              ? ("Quota error: " + msg.slice(0, 100))
+              : "Left: — · Run getEmailQuota in Apps Script → Allow → New version Deploy";
+          }
         }
       };
       Api.getQuota().then(applyQuota).catch(() => applyQuota(null));
