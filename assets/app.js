@@ -826,25 +826,38 @@ const App = (() => {
   };
 
 
-  /* Tiny rocket when switching tabs — never blocks paint */
-  const flyTabRocket = (fromTitle, toTitle) => {
+  /* Rocket flies from the tab you left to the tab you opened (purple flame) — never blocks paint */
+  const flyTabRocket = (fromView, toView, fromTitle, toTitle) => {
     try {
       const old = document.getElementById("mpmRocketFly");
       if (old) old.remove();
+      const fromBtn = document.querySelector(`.nav-item[data-view="${fromView}"]`);
+      const toBtn = document.querySelector(`.nav-item[data-view="${toView}"]`);
+      const fr = fromBtn ? fromBtn.getBoundingClientRect() : { left: 24, top: window.innerHeight * 0.35, width: 40, height: 28 };
+      const tr = toBtn ? toBtn.getBoundingClientRect() : { left: 24, top: window.innerHeight * 0.55, width: 40, height: 28 };
+      const x0 = fr.left + fr.width * 0.55;
+      const y0 = fr.top + fr.height * 0.5;
+      const x1 = tr.left + tr.width * 0.55;
+      const y1 = tr.top + tr.height * 0.5;
       const wrap = document.createElement("div");
       wrap.id = "mpmRocketFly";
       wrap.className = "mpm-rocket-fly";
       wrap.setAttribute("aria-hidden", "true");
+      wrap.style.setProperty("--rx0", x0 + "px");
+      wrap.style.setProperty("--ry0", y0 + "px");
+      wrap.style.setProperty("--rx1", x1 + "px");
+      wrap.style.setProperty("--ry1", y1 + "px");
       wrap.innerHTML = `
         <div class="mpm-rocket-inner">
           <span class="mpm-rocket-emoji">🚀</span>
           <span class="mpm-rocket-flame"></span>
+          <span class="mpm-rocket-trail"></span>
         </div>
         <div class="mpm-rocket-label">${(fromTitle || "").replace(/</g,"")} → ${(toTitle || "").replace(/</g,"")}</div>
       `;
       document.body.appendChild(wrap);
       requestAnimationFrame(() => wrap.classList.add("go"));
-      setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 700);
+      setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 780);
     } catch (e) {}
   };
 
@@ -861,7 +874,7 @@ const App = (() => {
       try {
         const fromT = (VIEWS[prevView] && VIEWS[prevView].title) || prevView || "";
         const toT = (VIEWS[view] && VIEWS[view].title) || view || "";
-        flyTabRocket(fromT, toT);
+        flyTabRocket(prevView, view, fromT, toT);
       } catch (e) {}
     }
     state.view = view;
@@ -989,10 +1002,33 @@ const App = (() => {
     const p1Sent = data["NCM PART-1"].filter(m => m.status.toLowerCase() === "sent").length;
     const p2Sent = data["NCM PART-2"].filter(m => m.status.toLowerCase() === "sent").length;
 
-    const recent = data._all
-      .filter(m => m.sentAt)
+    /* Prefer members with a real Last Sent stamp; sort newest first */
+    let recent = (data._all || [])
+      .filter(m => m.sentAt && String(m.sentAt).trim() && String(m.sentAt).trim() !== "—")
       .sort((a, b) => parseDate(b.sentAt) - parseDate(a.sentAt))
       .slice(0, 6);
+    /* Merge any portal-only example last-sent stamps */
+    try {
+      const ex = JSON.parse(localStorage.getItem("mpm.example.lastSent") || "{}");
+      Object.keys(ex || {}).forEach((k) => {
+        if (!ex[k]) return;
+        const already = recent.some(r => (r.email || "").toLowerCase() === String(k).toLowerCase() || r.memberId === k);
+        if (!already) {
+          recent.push({
+            name: k.includes("@") ? k : k,
+            email: k.includes("@") ? k : "",
+            memberId: k,
+            program: "Program Mail",
+            sentAt: ex[k],
+            status: "Sent"
+          });
+        }
+      });
+      recent = recent
+        .filter(m => m.sentAt && String(m.sentAt).trim() && String(m.sentAt).trim() !== "—")
+        .sort((a, b) => parseDate(b.sentAt) - parseDate(a.sentAt))
+        .slice(0, 6);
+    } catch (e) {}
 
     els.content.innerHTML = `
       ${head("Overview", VIEWS.overview.bn)}
@@ -3664,7 +3700,7 @@ const App = (() => {
         <button class="mail-tab" data-mtab="progmail" role="tab">
           <span class="mt-ico">${ICONS.send}</span> Program Mail
         </button>
-        <span class="mail-tabs-note">Inbox · Program Mail — inside the portal.</span>
+        
       </div>
 
       <div id="mailTabBody"></div>
@@ -5288,22 +5324,31 @@ const App = (() => {
       };
     }
 
-    /* restore saved UI */
+    /* restore saved UI (subject, body, program, To Send marks) after tab switch */
     let restored = null;
     try { restored = JSON.parse(localStorage.getItem(PM_STATE_KEY) || "null"); } catch (e) { restored = null; }
-    if (restored && restored.program) {
-      if (sel) sel.value = restored.program;
-      loadProgram(restored.program);
+    const hasRestore = restored && (
+      restored.program || restored.subject || restored.bodyHtml ||
+      (restored.decision && Object.keys(restored.decision).length)
+    );
+    if (hasRestore) {
+      const prog = restored.program || "";
+      if (sel) sel.value = prog;
+      loadProgram(prog);
+      /* loadProgram resets decision from sheet — put user marks back */
       if (restored.decision && typeof restored.decision === "object") {
-        Object.keys(restored.decision).forEach((k) => { decision[k] = restored.decision[k]; });
+        Object.keys(restored.decision).forEach((k) => {
+          const v = restored.decision[k];
+          if (v) decision[k] = v;
+        });
       }
-      try { paintTable(); paintStats(); } catch (e) {}
-      if (restored.subject && document.getElementById("pmSubject")) {
-        document.getElementById("pmSubject").value = restored.subject;
+      if (document.getElementById("pmSubject")) {
+        document.getElementById("pmSubject").value = restored.subject || "";
       }
-      if (restored.bodyHtml && document.getElementById("pmBodyBn")) {
-        document.getElementById("pmBodyBn").innerHTML = restored.bodyHtml;
+      if (document.getElementById("pmBodyBn")) {
+        document.getElementById("pmBodyBn").innerHTML = restored.bodyHtml || "";
       }
+      try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
       try { if (typeof paintMailPreview === "function") paintMailPreview(); } catch (e) {}
     } else {
       loadProgram("");

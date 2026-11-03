@@ -138,6 +138,7 @@ const Login = (() => {
       writeRemembered(null);
     }
 
+    try { location.hash = "#overview"; } catch (e) {}
     grantAccess({ username: match.username, name: match.name });
   };
 

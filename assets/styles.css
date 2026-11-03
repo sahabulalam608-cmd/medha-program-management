@@ -1366,58 +1366,82 @@ body { opacity: 1; transition: opacity .12s ease; }
 /* ---- tab rocket (non-blocking) ---- */
 .mpm-rocket-fly {
   position: fixed;
-  left: 50%;
-  top: 18%;
-  transform: translate(-50%, 0) scale(.6);
-  z-index: 100000;
+  left: var(--rx0, 40px);
+  top: var(--ry0, 40%);
+  z-index: 99999;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   opacity: 0;
-  transition: opacity .12s ease, transform .65s cubic-bezier(.2,.8,.2,1);
+  transform: translate(-50%, -50%) scale(.85);
+  transition: left .65s cubic-bezier(.22,.68,0,1.2), top .65s cubic-bezier(.22,.68,0,1.2), opacity .2s ease, transform .65s cubic-bezier(.22,.68,0,1.2);
 }
 .mpm-rocket-fly.go {
+  left: var(--rx1, 40px);
+  top: var(--ry1, 60%);
   opacity: 1;
-  transform: translate(42vw, -28vh) scale(1);
+  transform: translate(-50%, -50%) scale(1);
 }
 .mpm-rocket-inner {
   position: relative;
-  width: 48px;
-  height: 48px;
-  margin: 0 auto;
-  filter: drop-shadow(0 6px 12px rgba(91,33,182,.35));
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 6px 12px rgba(109,40,217,.35));
 }
 .mpm-rocket-emoji {
-  font-size: 36px;
+  font-size: 26px;
   line-height: 1;
+  transform: rotate(-45deg);
   display: block;
-  transform: rotate(-35deg);
 }
 .mpm-rocket-flame {
   position: absolute;
   left: 50%;
-  bottom: -6px;
-  width: 14px;
-  height: 22px;
-  margin-left: -16px;
+  bottom: -8px;
+  width: 16px;
+  height: 26px;
+  margin-left: -18px;
   border-radius: 40% 40% 60% 60%;
-  background: radial-gradient(circle at 50% 20%, #fde68a 0%, #c084fc 40%, #6d28d9 75%, transparent 100%);
-  animation: mpmFlame .18s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 50% 15%, #fde68a 0%, #e879f9 35%, #7c3aed 70%, transparent 100%);
+  animation: mpmFlame .16s ease-in-out infinite alternate;
   transform: rotate(35deg);
-  filter: blur(.3px);
+  filter: blur(.35px);
+  box-shadow: 0 0 12px 3px rgba(168,85,247,.55);
+}
+.mpm-rocket-trail {
+  position: absolute;
+  left: 20%;
+  top: 70%;
+  width: 10px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(to bottom, rgba(192,132,252,.7), transparent);
+  filter: blur(3px);
+  transform: rotate(40deg);
+  animation: mpmTrail .2s ease-in-out infinite alternate;
 }
 @keyframes mpmFlame {
-  from { height: 16px; opacity: .85; }
-  to { height: 26px; opacity: 1; }
+  from { height: 18px; opacity: .9; }
+  to { height: 30px; opacity: 1; }
+}
+@keyframes mpmTrail {
+  from { opacity: .5; height: 20px; }
+  to { opacity: .9; height: 34px; }
 }
 .mpm-rocket-label {
-  margin-top: 6px;
+  margin-top: 8px;
   text-align: center;
   font-size: 11px;
   font-weight: 800;
   color: #5b21b6;
-  background: rgba(255,255,255,.92);
+  background: rgba(255,255,255,.95);
   border: 1px solid #ede9fe;
   border-radius: 999px;
   padding: 3px 10px;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(91,33,182,.12);
+  box-shadow: 0 4px 14px rgba(91,33,182,.14);
 }
