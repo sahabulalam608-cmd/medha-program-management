@@ -1313,14 +1313,17 @@ const App = (() => {
     }
     const normId = (s) => String(s || "").toUpperCase().replace(/\s+/g, "").replace(/–/g, "-");
     const findTrack = (rows) => {
-      const list = rows || state.tracker || [];
+      const list = rows || [];
       const nid = normId(memberId);
       let t = list.find(x => normId(x.memberId) === nid);
-      if (!t && m.email) t = list.find(x => x.email && String(x.email).toLowerCase() === String(m.email).toLowerCase());
-      if (!t && m.name) t = list.find(x => x.name && String(x.name).toLowerCase().trim() === String(m.name).toLowerCase().trim());
+      if (!t && m.email) t = list.find(x => String(x.email || "").toLowerCase() === String(m.email).toLowerCase());
+      if (!t && m.name) {
+        const nm = String(m.name).toLowerCase().trim();
+        t = list.find(x => String(x.name || "").toLowerCase().trim() === nm);
+      }
       return t || {};
     };
-    let track = findTrack(state.tracker);
+    let track = findTrack(state.tracker || []);
 
     const info = (label, value, href, icon) => `
       <div style="padding:8px 0;border-bottom:1px solid var(--border);">
@@ -1400,16 +1403,18 @@ const App = (() => {
 
     const pane = document.getElementById("drawerPane");
     const paintAtt = () => {
-      track = findTrack(state.tracker);
+      track = findTrack(state.tracker || []);
       pane.innerHTML = panes.attendance();
     };
     const ensureTrackerThen = async () => {
-      if (state.tracker && state.tracker.length) { paintAtt(); return; }
-      pane.innerHTML = `<div style="padding:16px;color:#64748b;font-size:13px;">Loading attendance from October Tracker…</div>`;
+      pane.innerHTML = "<div style=\"padding:16px;color:#64748b;font-size:13px;\">Loading October Tracker…</div>";
       try {
-        const month = state.monthTab || (Api.NCM_TABS && Api.NCM_TABS.trackers[0]) || "October Tracker";
+        const month = state.monthTab || "October Tracker";
         state.tracker = (await Api.getNcmTracker(month, true)) || [];
-      } catch (e) { state.tracker = state.tracker || []; }
+      } catch (e) {
+        console.warn(e);
+        state.tracker = state.tracker || [];
+      }
       paintAtt();
     };
     pane.innerHTML = panes.profile();
@@ -5329,19 +5334,18 @@ const App = (() => {
         const hasProg = document.getElementById("pmProgram");
         const hasSubj = document.getElementById("pmSubject");
         const hasBody = document.getElementById("pmBodyBn");
-        /* Do not overwrite a good draft when Program Mail DOM is gone (user on Inbox or left Mail) */
         if (!hasProg && !hasSubj && !hasBody) {
-          if (decision && Object.keys(decision).length) {
-            prev.decision = decision;
+          if (decision && typeof decision === "object" && Object.keys(decision).length) {
+            prev.decision = Object.assign({}, decision);
             prev.at = Date.now();
             localStorage.setItem(PM_STATE_KEY, JSON.stringify(prev));
           }
           return;
         }
         const payload = {
-          program: hasProg ? (hasProg.value || "") : (prev.program || program || ""),
-          subject: hasSubj ? (hasSubj.value || "") : (prev.subject || ""),
-          bodyHtml: hasBody ? (hasBody.innerHTML || "") : (prev.bodyHtml || ""),
+          program: hasProg ? String(hasProg.value || "") : String(prev.program || program || ""),
+          subject: hasSubj ? String(hasSubj.value || "") : String(prev.subject || ""),
+          bodyHtml: hasBody ? String(hasBody.innerHTML || "") : String(prev.bodyHtml || ""),
           decision: (decision && Object.keys(decision).length) ? Object.assign({}, decision) : (prev.decision || {}),
           at: Date.now()
         };
@@ -5377,31 +5381,25 @@ const App = (() => {
       };
     }
 
-    /* restore saved UI (subject, body, program, To Send marks) after tab switch */
+    /* restore draft after tab switch — decision AFTER loadProgram */
     let restored = null;
     try { restored = JSON.parse(localStorage.getItem(PM_STATE_KEY) || "null"); } catch (e) { restored = null; }
-    const hasRestore = restored && (
+    const hasRestore = !!(restored && (
       restored.program || restored.subject || restored.bodyHtml ||
       (restored.decision && Object.keys(restored.decision).length)
-    );
+    ));
     if (hasRestore) {
       const prog = restored.program || "";
       if (sel) sel.value = prog;
       loadProgram(prog);
-      /* loadProgram resets decision from sheet — put user marks back */
       if (restored.decision && typeof restored.decision === "object") {
         Object.keys(restored.decision).forEach((k) => {
-          const v = restored.decision[k];
-          if (v) decision[k] = v;
+          if (restored.decision[k]) decision[k] = restored.decision[k];
         });
       }
-      if (document.getElementById("pmSubject")) {
-        document.getElementById("pmSubject").value = restored.subject || "";
-      }
-      if (document.getElementById("pmBodyBn")) {
-        document.getElementById("pmBodyBn").innerHTML = restored.bodyHtml || "";
-      }
-      try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
+      if (document.getElementById("pmSubject")) document.getElementById("pmSubject").value = restored.subject || "";
+      if (document.getElementById("pmBodyBn")) document.getElementById("pmBodyBn").innerHTML = restored.bodyHtml || "";
+      try { paintTable(); paintStats(); } catch (e) {}
       try { if (typeof paintMailPreview === "function") paintMailPreview(); } catch (e) {}
     } else {
       loadProgram("");

@@ -4310,45 +4310,56 @@ const Api = (() => {
       const key = "ncm:tracker:" + tab;
       if (!force) {
         const hit = cache.get(key);
-        if (hit && Date.now() - hit.t < CACHE_TTL) return hit.v;
+        if (hit && Date.now() - hit.t < CACHE_TTL && hit.v && hit.v.length) return hit.v;
       }
 
-      // Backend connected → use it (absolute sheet row numbers, exact values)
-      if (getBackendUrl()) {
-        try {
-          const r = await backendCall("getNcmTracker", { tab });
-          if (r && r.success && r.rows) {
-            cache.set(key, { v: r.rows, t: Date.now() });
-            return r.rows;
-          }
-        } catch (e) { console.warn("Backend tracker failed, falling back", e); }
-      }
+      const parseTrackerRows = (rows) => (rows || []).map((r, i) => {
+        const rec = { _row: i + 4 };
+        TRACKER_COLS.forEach((spec, ci) => {
+          let v = r[ci];
+          if (v instanceof Date) v = v.toISOString();
+          else if (v != null && typeof v === "number") v = Math.round(v * 1000) / 1000;
+          rec[spec.key] = v == null ? "" : String(v).trim();
+        });
+        return rec;
+      }).filter(r => r.memberId && r.name && /\d/.test(String(r.memberId)));
 
+      // Prefer public sheet read by gid (works even when backend returns empty rows)
       try {
         const TRACKER_GIDS = { "October Tracker": "462029809" };
         const gid = TRACKER_GIDS[tab] || "";
         let data = null;
         if (gid) {
-          try { data = await readGviz(NCM_SHEET_ID, gid, 0, { timeout: 10000, retries: 1 }); } catch (e1) { data = null; }
+          try { data = await readGviz(NCM_SHEET_ID, gid, 0, { timeout: 12000, retries: 1 }); } catch (e1) { data = null; }
         }
-        if (!data) data = await readGviz(NCM_SHEET_ID, tab, 0, { timeout: 10000, retries: 1 });
-        const rows = gvizRows(data);
-        const out = rows.map((r, i) => {
-          const rec = { _row: i + 4 };
-          TRACKER_COLS.forEach((spec, ci) => {
-            let v = r[ci];
-            if (v instanceof Date) v = v.toISOString();
-            else if (v != null && typeof v === "number") v = Math.round(v * 1000) / 1000;
-            rec[spec.key] = v == null ? "" : String(v).trim();
-          });
-          return rec;
-        }).filter(r => r.memberId && r.name && /\d/.test(r.memberId));
-        cache.set(key, { v: out, t: Date.now() });
-        return out;
+        if (!data) {
+          try { data = await readGviz(NCM_SHEET_ID, tab, 0, { timeout: 12000, retries: 1 }); } catch (e2) { data = null; }
+        }
+        if (data) {
+          const out = parseTrackerRows(gvizRows(data));
+          if (out.length) {
+            cache.set(key, { v: out, t: Date.now() });
+            return out;
+          }
+        }
       } catch (e) {
-        console.warn("NCM tracker fetch failed:", e.message);
-        return [];
+        console.warn("NCM tracker gviz failed:", e && e.message ? e.message : e);
       }
+
+      // Backend only if it actually returns usable rows
+      if (getBackendUrl()) {
+        try {
+          const r = await backendCall("getNcmTracker", { tab });
+          const rows = (r && r.success && Array.isArray(r.rows)) ? r.rows : [];
+          const ok = rows.filter(x => x && x.memberId && x.name);
+          if (ok.length) {
+            cache.set(key, { v: ok, t: Date.now() });
+            return ok;
+          }
+        } catch (e) { console.warn("Backend tracker failed", e); }
+      }
+
+      return [];
     },
 
     /** Write one tracker cell (backend only — sheet stays the source of truth) */
