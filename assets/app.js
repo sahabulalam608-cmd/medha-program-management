@@ -825,12 +825,45 @@ const App = (() => {
     window.scrollTo(0, m.win);
   };
 
+
+  /* Tiny rocket when switching tabs — never blocks paint */
+  const flyTabRocket = (fromTitle, toTitle) => {
+    try {
+      const old = document.getElementById("mpmRocketFly");
+      if (old) old.remove();
+      const wrap = document.createElement("div");
+      wrap.id = "mpmRocketFly";
+      wrap.className = "mpm-rocket-fly";
+      wrap.setAttribute("aria-hidden", "true");
+      wrap.innerHTML = `
+        <div class="mpm-rocket-inner">
+          <span class="mpm-rocket-emoji">🚀</span>
+          <span class="mpm-rocket-flame"></span>
+        </div>
+        <div class="mpm-rocket-label">${(fromTitle || "").replace(/</g,"")} → ${(toTitle || "").replace(/</g,"")}</div>
+      `;
+      document.body.appendChild(wrap);
+      requestAnimationFrame(() => wrap.classList.add("go"));
+      setTimeout(() => { try { wrap.remove(); } catch (e) {} }, 700);
+    } catch (e) {}
+  };
+
   const setView = async (view, opts = {}) => {
     if (!VIEWS[view]) view = "overview";
     /* a page that was removed from the sidebar cannot be opened */
     if (isPageHidden(view)) view = "overview";
     const changed = state.view !== view;
-    if (changed) saveScroll();
+    const prevView = state.view;
+    if (changed) {
+      /* save Program Mail draft before leaving */
+      try { if (prevView === "mail" && typeof window.__mpmSaveProgramMail === "function") window.__mpmSaveProgramMail(); } catch (e) {}
+      saveScroll();
+      try {
+        const fromT = (VIEWS[prevView] && VIEWS[prevView].title) || prevView || "";
+        const toT = (VIEWS[view] && VIEWS[view].title) || view || "";
+        flyTabRocket(fromT, toT);
+      } catch (e) {}
+    }
     state.view = view;
     state.sub = opts.sub !== undefined ? opts.sub : (changed ? "" : (state.sub || ""));
     /* when the Members view is opened fresh, honour the sub in the address bar */
@@ -1148,7 +1181,7 @@ const App = (() => {
           <td class="email-cell">${escapeHtml(m.email)}</td>
           <td><span class="chip"><span class="chip-dot" style="background:${isP1 ? "#2563eb" : "#f59e0b"};"></span>${isP1 ? "Part 1" : "Part 2"}</span></td>
           <td>${statusChip(m.status)}</td>
-          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${m.sentAt ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${(m.sentAt && String(m.sentAt).trim() && String(m.sentAt).trim() !== "—") ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
           <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(prof.plan || m.plan || "—")}</td>
           <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(prof.team || m.team || "—")}</td>
           <td>${payChip(paid, pstat)}</td>
@@ -1288,7 +1321,7 @@ const App = (() => {
         ${info("Team category", m.team || prof.team)}
         ${info("FB profile", m.facebook || prof.fbProfile, (m.facebook || prof.fbProfile || "").match(/^https?:\/\//) ? (prof.fbProfile || m.facebook) : "", "assets/img/facebook-icon.png")}
         ${info("Page link", prof.pageLink, prof.pageLink)}
-        ${info("Transaction ID", m.tranId)}
+        ${info("Transaction ID", m.tranId || m.transactionId || m.tran_id || "")}
         ${info("Mail status", m.status || "Not set")}
         ${info("Last sent", m.sentAt ? stamp(m.sentAt) : "Not sent yet")}`,
       payment: () => `
@@ -1296,7 +1329,7 @@ const App = (() => {
         ${info("Payment status", prof.paymentStatus || m.paymentStatus)}
         ${info("Payment date", prof.paymentDate || m.paymentDate)}
         ${info("Payment channel", prof.paymentChannel || m.paymentChannel)}
-        ${info("Transaction ID", m.tranId)}
+        ${info("Transaction ID", m.tranId || m.transactionId || m.tran_id || "")}
         ${info("Due", prof.due)}
         ${info("July_SF", prof.julySF)}
         ${info("Aug_SF", prof.augSF)}
@@ -3899,6 +3932,7 @@ const App = (() => {
     document.getElementById("mailItems")?.addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-mail-mark]");
       if (!btn) return;
+      e.preventDefault();
       e.stopPropagation();
       if (!backend) { toast("Connect the backend to change read state", "error"); return; }
       const threadId = btn.getAttribute("data-mail-mark");
@@ -3906,19 +3940,23 @@ const App = (() => {
       if (!threadId) { toast("This mail has no thread id", "error"); return; }
       btn.disabled = true;
       try {
-        if (wantUnread) {
-          await Api.markMailUnread(threadId);
-        } else {
-          await Api.markMailRead(threadId);
+        const r = wantUnread
+          ? await Api.markMailUnread(threadId)
+          : await Api.markMailRead(threadId);
+        if (r && r.success === false) {
+          throw new Error(r.message || "Gmail did not update the read state");
         }
         const list = mailList();
         const target = list.find((x) => x.threadId === threadId);
         if (target) target.unread = wantUnread;
+        writeMailCache(list);
         loadMailBadge();
         paint();
-        toast(wantUnread ? "Marked as unread" : "Marked as read", "success");
+        toast(wantUnread ? "Marked as unread in Gmail" : "Marked as read in Gmail", "success");
       } catch (err) {
         toast("Could not change the read state: " + (err && err.message ? err.message : "unknown error"), "error");
+      } finally {
+        btn.disabled = false;
       }
     });
 
@@ -3942,15 +3980,19 @@ const App = (() => {
 
     /* opening the inbox means the mails have been seen — mark them read */
     document.getElementById("mailItems")?.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-mail-mark]")) return; /* mark button handles itself */
       const item = e.target.closest(".ml-item");
       if (!item) return;
       const idx = parseInt(item.getAttribute("data-mail-idx") || "-1", 10);
       const list = mailList();
       const m = list[idx];
       if (!m) return;
-      m.unread = false;
-      if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
-      loadMailBadge();
+      /* Opening a mail marks it read in Gmail (normal client behaviour) */
+      if (m.unread) {
+        m.unread = false;
+        if (backend && m.threadId) Api.markMailRead(m.threadId).catch(() => {});
+        loadMailBadge();
+      }
       /* toggle body expand/collapse without full repaint */
       const bodyEl = item.querySelector(".ml-fullbody");
       if (!bodyEl) return;
@@ -4014,13 +4056,6 @@ const App = (() => {
         <input class="cd-field" id="cdTo" placeholder="To: email or batch group" />
         <input class="cd-field" id="cdSubject" placeholder="Subject" />
         <textarea class="cd-textarea" id="cdBody" placeholder="Write your message… This will be sent via GmailApp.sendEmail() in Apps Script, and logged to the sheet."></textarea>
-        <div class="pm-row">
-          <label style="font-size:12px;font-weight:700;color:var(--text-muted);">Send body language</label>
-          <select class="cd-field" id="cdLang" style="padding:8px 11px;">
-            <option value="en">English</option>
-            <option value="bn">Bangla</option>
-          </select>
-        </div>
         <div class="pm-row">
           <label style="font-size:12px;font-weight:700;color:var(--text-muted);">Batch group</label>
           <select class="cd-field" id="cdGroup" style="padding:8px 11px;">
@@ -4375,7 +4410,7 @@ const App = (() => {
         <div class="pm-row">
           <label>Subject *</label>
           <div class="pm-input-row">
-            <input type="text" id="pmSubject" value="Medha Program — Welcome & Orientation Schedule (October 2026)" placeholder="Email subject" />
+            <input type="text" id="pmSubject" value="Medha Program — Welcome &amp; Orientation Schedule (October 2026)" placeholder="Email subject" />
             <button class="pm-chip-btn" id="pmAiSubject">✨ AI Subject</button>
           </div>
         </div>
@@ -4388,58 +4423,30 @@ const App = (() => {
           <span class="pm-status-line" id="pmAiStatus"></span>
         </div>
 
-        <div class="pm-dual">
-          <div>
-            <div class="pm-editor-label">
-              <span>Message (BN)</span>
-              <button class="pm-chip-btn ghost" id="pmTrBn" style="padding:3px 8px;font-size:11px;">⇄ Translate → EN</button>
-              <span class="hint">* — type here, EN auto</span>
-            </div>
-            <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write in Bangla — English appears beside it automatically...">আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ,\n\nঅনুগ্রহ করে আপনার নিজের মেম্বার আইডি ও ইমেইল ঠিক আছে কিনা দেখে নিন। ক্লাসের সময়, লাইভ সেশন ও কোর্স ম্যাটেরিয়াল নিয়ে প্রয়োজনীয় আপডেট পরবর্তী ইমেইলে পাঠানো হবে।\n\nসুন্দর শুভেচ্ছা,\nঅনলাইন টেক একাডেমি বাংলাদেশ</div>
-            <div class="pm-fmt-bar">
-              <button class="pm-fmt" data-fmt="bold" data-lang="bn"><b>B</b></button>
-              <button class="pm-fmt" data-fmt="italic" data-lang="bn"><i>I</i></button>
-              <button class="pm-fmt" data-fmt="underline" data-lang="bn"><u>U</u></button>
-              <button class="pm-fmt" data-fmt="insertUnorderedList" data-lang="bn">• List</button>
-              <button class="pm-fmt" data-fmt="insertOrderedList" data-lang="bn">1. List</button>
-              <input type="color" id="pmColorBn" value="#5b21b6" />
-              <button class="pm-fmt color" data-color="bn">Color</button>
-              <select id="pmFontBn"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Tahoma</option><option>Trebuchet MS</option><option>Calibri</option></select>
-              <button class="pm-fmt" data-font="bn">Font</button>
-              <select id="pmSizeBn"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">XL</option><option value="6">XXL</option></select>
-              <button class="pm-fmt" data-size="bn">Size</button>
-            </div>
+        
+        <div class="pm-single" style="margin-top:4px;">
+          <div class="pm-editor-label">
+            <span>Message</span>
           </div>
-          <div>
-            <div class="pm-editor-label">
-              <span>Message (EN)</span>
-              <button class="pm-chip-btn ghost" id="pmTrEn" style="padding:3px 8px;font-size:11px;">⇄ Translate → BN</button>
-              <span class="hint">* — type here, BN auto</span>
-            </div>
-            <div id="pmBodyEn" contenteditable="true" class="pm-editor" data-placeholder="Write in English — Bangla appears auto...">Dear Student,\n\nWelcome to Medha Program Management by Online Tech Academy. Please check your assigned Member ID and ensure you have verified your Medha access email.\n\n• Live classes: every Saturday and Tuesday at 8:30 PM BST\n• Course materials: available in the Files section\n• Support: post any query in the Student Support desk\n\nWarm regards,\nOTA Academic Coordination Team\nOnline Tech Academy Bangladesh</div>
-            <div class="pm-fmt-bar">
-              <button class="pm-fmt" data-fmt="bold" data-lang="en"><b>B</b></button>
-              <button class="pm-fmt" data-fmt="italic" data-lang="en"><i>I</i></button>
-              <button class="pm-fmt" data-fmt="underline" data-lang="en"><u>U</u></button>
-              <button class="pm-fmt" data-fmt="insertUnorderedList" data-lang="en">• List</button>
-              <button class="pm-fmt" data-fmt="insertOrderedList" data-lang="en">1. List</button>
-              <input type="color" id="pmColorEn" value="#5b21b6" />
-              <button class="pm-fmt color" data-color="en">Color</button>
-              <select id="pmFontEn"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Tahoma</option><option>Trebuchet MS</option><option>Calibri</option></select>
-              <button class="pm-fmt" data-font="en">Font</button>
-              <select id="pmSizeEn"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">XL</option><option value="6">XXL</option></select>
-              <button class="pm-fmt" data-size="en">Size</button>
-            </div>
+          <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write your message here…">আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ,\n\nঅনুগ্রহ করে আপনার নিজের মেম্বার আইডি ও ইমেইল ঠিক আছে কিনা দেখে নিন। ক্লাসের সময়, লাইভ সেশন ও কোর্স ম্যাটেরিয়াল নিয়ে প্রয়োজনীয় আপডেট পরবর্তী ইমেইলে পাঠানো হবে।\n\nসুন্দর শুভেচ্ছা,\nঅনলাইন টেক একাডেমি বাংলাদেশ</div>
+          <div id="pmBodyEn" contenteditable="true" class="pm-editor" style="display:none;" aria-hidden="true"></div>
+          <div class="pm-fmt-bar">
+            <button class="pm-fmt" data-fmt="bold" data-lang="bn"><b>B</b></button>
+            <button class="pm-fmt" data-fmt="italic" data-lang="bn"><i>I</i></button>
+            <button class="pm-fmt" data-fmt="underline" data-lang="bn"><u>U</u></button>
+            <button class="pm-fmt" data-fmt="insertUnorderedList" data-lang="bn">• List</button>
+            <button class="pm-fmt" data-fmt="insertOrderedList" data-lang="bn">1. List</button>
+            <input type="color" id="pmColorBn" value="#5b21b6" />
+            <button class="pm-fmt color" data-color="bn">Color</button>
+            <select id="pmFontBn"><option>Arial</option><option>Georgia</option><option>Verdana</option><option>Tahoma</option><option>Trebuchet MS</option><option>Calibri</option></select>
+            <button class="pm-fmt" data-font="bn">Font</button>
+            <select id="pmSizeBn"><option value="2">Small</option><option value="3" selected>Normal</option><option value="4">Large</option><option value="5">XL</option><option value="6">XXL</option></select>
+            <button class="pm-fmt" data-size="bn">Size</button>
           </div>
         </div>
 
         <div class="pm-row" style="margin-top:14px;">
-          <label>Send body language <span style="font-size:11px;color:#7c3aed;">(colors/fonts must be on THIS language)</span></label>
-          <select id="pmSendLang" style="padding:8px 11px;border-radius:8px;border:1.5px solid #e0e7ff;font-family:inherit;font-size:13px;">
-            <option value="en">English</option>
-            <option value="bn">Bangla</option>
-          </select>
-          <span style="font-size:11px;color:#64748b;margin-left:8px;">{{name}} {{memberId}} / {{member id}} {{email}} — use exact spelling</span>
+          <span style="font-size:11px;color:#64748b;">{{name}} {{memberId}} / {{member id}} {{email}} — use exact spelling.</span>
         </div>
 
         <div class="pm-row2">
@@ -4625,7 +4632,7 @@ const App = (() => {
               </select>
             </div>
           </td>
-          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${m.sentAt ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
+          <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">${(m.sentAt && String(m.sentAt).trim() && String(m.sentAt).trim() !== "—") ? escapeHtml(stamp(m.sentAt)) : `<span style="color:#cbd5e1;">Not sent yet</span>`}</td>
         </tr>`;
       }).join("") || `<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:26px;">No members match your filters</td></tr>`;
 
@@ -4636,6 +4643,31 @@ const App = (() => {
           paintTable();
         });
       });
+    };
+
+
+    /* Example rows are not in the sheet — remember their Last Sent in this browser */
+    const EX_SENT_KEY = "mpm.example.lastSent";
+    const readExSent = () => {
+      try { return JSON.parse(localStorage.getItem(EX_SENT_KEY) || "{}") || {}; }
+      catch (e) { return {}; }
+    };
+    const writeExSent = (map) => {
+      try { localStorage.setItem(EX_SENT_KEY, JSON.stringify(map || {})); } catch (e) {}
+    };
+    const rememberExSent = (email, memberId, stamp) => {
+      const map = readExSent();
+      const t = String(stamp || "").trim();
+      if (!t || t === "—") return;
+      if (email) map["e:" + String(email).toLowerCase()] = t;
+      if (memberId) map["id:" + String(memberId)] = t;
+      writeExSent(map);
+    };
+    const lookupExSent = (email, memberId) => {
+      const map = readExSent();
+      return (memberId && map["id:" + String(memberId)])
+        || (email && map["e:" + String(email).toLowerCase()])
+        || "";
     };
 
     const loadProgram = (p, force) => {
@@ -4668,7 +4700,7 @@ const App = (() => {
         name: "Md Sahabul Alam",
         email: "sahabulota@gmail.com",
         status: "Sent",
-        sentAt: "—",
+        sentAt: lookupExSent("sahabulota@gmail.com", "NCM- 101 ( Example )") || "—",
         _example: true,
         _tab: p
       };
@@ -4678,7 +4710,7 @@ const App = (() => {
         name: "Md Ahsan",
         email: "howladerahsan@gmail.com",
         status: "Sent",
-        sentAt: "—",
+        sentAt: lookupExSent("howladerahsan@gmail.com", "NCM-P2-0101002 ( Example )") || "—",
         _example: true,
         _tab: p
       };
@@ -4707,7 +4739,7 @@ const App = (() => {
           name: "Md Sahabul Alam",
           email: "sahabulota@gmail.com",
           status: "Sent",
-          sentAt: "—",
+          sentAt: lookupExSent("sahabulota@gmail.com", "NCM- 101 ( Example )") || "—",
           _example: true,
           _tab: p
         };
@@ -4717,7 +4749,7 @@ const App = (() => {
           name: "Md Ahsan",
           email: "howladerahsan@gmail.com",
           status: "Sent",
-          sentAt: "—",
+          sentAt: lookupExSent("howladerahsan@gmail.com", "NCM-P2-0101002 ( Example )") || "—",
           _example: true,
           _tab: p
         };
@@ -4818,7 +4850,7 @@ const App = (() => {
     document.getElementById("pmNamePreview").addEventListener("click", () => {
       const m = members[0];
       if (!m) { toast("Select a program first", "error"); return; }
-      const body = (document.getElementById("pmSendLang")?.value === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerText;
+      const body = (function(){const b=document.getElementById("pmBodyBn"),e=document.getElementById("pmBodyEn");const t=el=>(el&&(el.innerText||el.textContent)||"").trim();return (t(b)?b:(t(e)?e:b)).innerText;})();
       const html = body
         .replace(/\{\{name\}\}/g, m.name)
         .replace(/\{\{memberId\}\}/g, m.memberId)
@@ -4832,7 +4864,7 @@ const App = (() => {
     const paintMailPreview = () => {
       const bodyBox = document.getElementById("pmLpBody");
       if (!bodyBox) return;
-      const lang = document.getElementById("pmSendLang")?.value || "en";
+      const lang = "auto";
       const subject = (document.getElementById("pmSubject")?.value || "").trim();
       const editor = document.getElementById(lang === "bn" ? "pmBodyBn" : "pmBodyEn");
       let html = (editor && editor.innerHTML || "").trim();
@@ -4854,7 +4886,7 @@ const App = (() => {
         : `<div class="pm-lp-empty">Type the mail body and the preview will appear here, exactly as the member will see it.</div>`;
     };
 
-    const livePreviewInputs = ["pmSubject", "pmSendLang", "pmProgram"];
+    const livePreviewInputs = ["pmSubject", "pmProgram"];
     livePreviewInputs.forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -4865,10 +4897,65 @@ const App = (() => {
     ["pmBodyBn", "pmBodyEn"].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
+      el.setAttribute("contenteditable", "true");
+      el.style.userSelect = "text";
+      el.style.webkitUserSelect = "text";
       el.addEventListener("input", paintMailPreview);
       el.addEventListener("keyup", paintMailPreview);
-      el.addEventListener("paste", () => setTimeout(paintMailPreview, 0));
       el.addEventListener("blur", paintMailPreview);
+      /* Explicit paste — some browsers / Avro break contenteditable default paste */
+      el.addEventListener("paste", (ev) => {
+        try {
+          const cd = ev.clipboardData || window.clipboardData;
+          if (!cd) { setTimeout(paintMailPreview, 0); return; }
+          ev.preventDefault();
+          let html = "";
+          let text = "";
+          try { html = cd.getData("text/html") || ""; } catch (e1) {}
+          try { text = cd.getData("text/plain") || ""; } catch (e2) {}
+          if (html && /<(p|div|br|span|b|i|u|ul|ol|li|strong|em)\b/i.test(html)) {
+            /* strip scripts/styles only */
+            html = html.replace(/<script[\s\S]*?<\/script>/gi, "")
+                       .replace(/<style[\s\S]*?<\/style>/gi, "");
+            if (document.queryCommandSupported && document.queryCommandSupported("insertHTML")) {
+              document.execCommand("insertHTML", false, html);
+            } else {
+              el.focus();
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                const tmp = document.createElement("div");
+                tmp.innerHTML = html;
+                const frag = document.createDocumentFragment();
+                let node;
+                while ((node = tmp.firstChild)) frag.appendChild(node);
+                range.insertNode(frag);
+              } else {
+                el.innerHTML = (el.innerHTML || "") + html;
+              }
+            }
+          } else if (text) {
+            if (document.queryCommandSupported && document.queryCommandSupported("insertText")) {
+              document.execCommand("insertText", false, text);
+            } else {
+              el.focus();
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(document.createTextNode(text));
+                range.collapse(false);
+              } else {
+                el.textContent = (el.textContent || "") + text;
+              }
+            }
+          }
+        } catch (err) {
+          /* fall through to default if something fails */
+        }
+        setTimeout(paintMailPreview, 0);
+      });
       try {
         const mo = new MutationObserver(() => paintMailPreview());
         mo.observe(el, { childList: true, subtree: true, characterData: true });
@@ -4882,8 +4969,9 @@ const App = (() => {
     paintMailPreview();
 
     document.getElementById("pmPreview").addEventListener("click", () => {
-      const lang = document.getElementById("pmSendLang").value;
-      const html = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML;
+      const b = document.getElementById("pmBodyBn"), e = document.getElementById("pmBodyEn");
+      const t = (el) => (el && (el.innerText || el.textContent) || "").trim();
+      const html = (t(b) ? b : (t(e) ? e : b)).innerHTML;
       const w = window.open("", "_blank");
       if (!w) { toast("Pop-up blocked — allow popups to preview", "error"); return; }
       w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mail preview</title></head>
@@ -4924,39 +5012,192 @@ const App = (() => {
       toast("Test send sent to your own inbox", "success");
     });
 
-    // send
+    // send — 3s confirm, then result popup
+    const showSendConfirm = (n, onOk) => {
+      const old = document.getElementById("pmConfirmModal");
+      if (old) old.remove();
+      const modal = document.createElement("div");
+      modal.id = "pmConfirmModal";
+      modal.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;";
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(0,0,0,.18);font-family:inherit;">
+          <div style="font-size:16px;font-weight:800;color:#1e1b4b;margin-bottom:6px;">Confirm send</div>
+          <div style="font-size:13.5px;color:#475569;line-height:1.5;margin-bottom:16px;">
+            Send this mail to <b>${n}</b> recipient${n === 1 ? "" : "s"} marked <b>To Send</b>?
+          </div>
+          <div style="height:6px;background:#ede9fe;border-radius:99px;overflow:hidden;margin-bottom:10px;">
+            <div id="pmConfirmBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#4f46e5);transition:width .2s linear;"></div>
+          </div>
+          <div id="pmConfirmHint" style="font-size:12px;color:#7c3aed;font-weight:600;margin-bottom:14px;">Wait 3 seconds…</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" id="pmConfirmCancel" style="padding:9px 16px;border-radius:10px;border:1.5px solid #e2e8f0;background:#fff;font-weight:700;cursor:pointer;font-family:inherit;">Cancel</button>
+            <button type="button" id="pmConfirmOk" disabled style="padding:9px 16px;border-radius:10px;border:none;background:#c4b5fd;color:#fff;font-weight:700;cursor:not-allowed;font-family:inherit;">Send</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      let left = 3;
+      const bar = modal.querySelector("#pmConfirmBar");
+      const hint = modal.querySelector("#pmConfirmHint");
+      const ok = modal.querySelector("#pmConfirmOk");
+      const tick = () => {
+        bar.style.width = ((3 - left) / 3 * 100) + "%";
+        if (left <= 0) {
+          bar.style.width = "100%";
+          hint.textContent = "";
+          ok.disabled = false;
+          ok.style.background = "#5b21b6";
+          ok.style.cursor = "pointer";
+          return;
+        }
+        hint.textContent = "Wait " + left + " second" + (left === 1 ? "" : "s") + "…";
+        left -= 1;
+        setTimeout(tick, 1000);
+      };
+      setTimeout(tick, 30);
+      const close = () => modal.remove();
+      modal.querySelector("#pmConfirmCancel").onclick = close;
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+      ok.onclick = () => { if (ok.disabled) return; close(); onOk(); };
+    };
+
+    const showSendResult = (r, total) => {
+      const old = document.getElementById("pmResultModal");
+      if (old) old.remove();
+      const sent = r && (r.sent != null) ? r.sent : 0;
+      const failed = r && (r.failed != null) ? r.failed : Math.max(0, total - sent);
+      const failedList = (r && (r.failedList || r.failedEmails || [])) || [];
+      const msg = (r && r.message) ? String(r.message) : "";
+      const modal = document.createElement("div");
+      modal.id = "pmResultModal";
+      modal.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;";
+      const details = failedList.length
+        ? `<details style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;">
+             <summary style="cursor:pointer;font-weight:700;color:#b91c1c;font-size:13px;">Details — ${failedList.length} failed address(es)</summary>
+             <ul style="margin:8px 0 0;padding-left:18px;font-size:12.5px;color:#7f1d1d;line-height:1.6;">
+               ${failedList.map(x => `<li>${String(x).replace(/</g,"&lt;")}</li>`).join("")}
+             </ul>
+           </details>`
+        : (failed > 0 ? `<div style="margin-top:10px;font-size:12.5px;color:#b91c1c;">Some mails failed. Check Gmail / quota / recipient addresses.</div>` : "");
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.18);font-family:inherit;">
+          <div style="font-size:16px;font-weight:800;color:#1e1b4b;margin-bottom:8px;">Send result</div>
+          <div style="display:flex;gap:12px;margin:12px 0 4px;">
+            <div style="flex:1;background:#ecfdf5;border-radius:12px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:#047857;">${sent}</div>
+              <div style="font-size:11px;font-weight:700;color:#065f46;letter-spacing:.04em;">SENT</div>
+            </div>
+            <div style="flex:1;background:#fef2f2;border-radius:12px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:#b91c1c;">${failed}</div>
+              <div style="font-size:11px;font-weight:700;color:#7f1d1d;letter-spacing:.04em;">FAILED</div>
+            </div>
+            <div style="flex:1;background:#f5f3ff;border-radius:12px;padding:12px;text-align:center;">
+              <div style="font-size:22px;font-weight:800;color:#5b21b6;">${total}</div>
+              <div style="font-size:11px;font-weight:700;color:#4c1d95;letter-spacing:.04em;">TOTAL</div>
+            </div>
+          </div>
+          ${msg ? `<div style="font-size:12.5px;color:#64748b;margin-top:8px;">${msg.replace(/</g,"&lt;")}</div>` : ""}
+          ${details}
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="button" id="pmResultOk" style="padding:9px 18px;border-radius:10px;border:none;background:#5b21b6;color:#fff;font-weight:700;cursor:pointer;font-family:inherit;">OK</button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      const close = () => modal.remove();
+      modal.querySelector("#pmResultOk").onclick = close;
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    };
+
     document.getElementById("pmSend").addEventListener("click", async () => {
       if (!backend) { toast("Connect Apps Script backend to send", "error"); return; }
       const subject = document.getElementById("pmSubject").value.trim();
-      const lang = document.getElementById("pmSendLang").value;
-      const body = (lang === "bn" ? document.getElementById("pmBodyBn") : document.getElementById("pmBodyEn")).innerHTML.trim();
-      if (!subject || !body) { toast("Subject & message required", "error"); return; }
+      const elBn = document.getElementById("pmBodyBn");
+      const elEn = document.getElementById("pmBodyEn");
+      const textOf = (el) => (el && (el.innerText || el.textContent) || "").replace(/\u00a0/g, " ").trim();
+      let bodyEl = textOf(elBn) ? elBn : (textOf(elEn) ? elEn : elBn);
+      const bodyText = textOf(bodyEl);
+      const body = (bodyEl && bodyEl.innerHTML) ? bodyEl.innerHTML.trim() : "";
+      if (!subject || !bodyText) { toast("Subject & message required", "error"); return; }
       const recipients = members.filter(m => decision[m.memberId] === "To Send").map(m => ({
         rowIndex: m._row, memberId: m.memberId, name: m.name, email: m.email,
       }));
       if (!recipients.length) { toast("No one marked “To Send”", "error"); return; }
 
-      const wrap = document.getElementById("pmProgressWrap");
-      const fill = document.getElementById("pmProgressFill");
-      const txt = document.getElementById("pmProgressText");
-      wrap.style.display = "block";
-      document.getElementById("pmStop").style.display = "inline-flex";
-      document.getElementById("pmSendStatus").textContent = "Sending…";
-      fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
+      showSendConfirm(recipients.length, async () => {
+        const wrap = document.getElementById("pmProgressWrap");
+        const fill = document.getElementById("pmProgressFill");
+        const txt = document.getElementById("pmProgressText");
+        wrap.style.display = "block";
+        document.getElementById("pmStop").style.display = "inline-flex";
+        document.getElementById("pmSendStatus").textContent = "Sending…";
+        fill.style.width = "0%"; txt.textContent = "0 / " + recipients.length;
 
-      try {
-        const r = await Api.sendMail({ program, subject, bodyHtml: body, recipients });
-        fill.style.width = "100%";
-        txt.textContent = (r.sent || 0) + " / " + recipients.length + " sent";
-        document.getElementById("pmSendStatus").textContent = "Done.";
-        toast("Sent: " + (r.sent || 0) + " · Failed: " + (r.failed || 0), "success");
-        document.getElementById("pmRefresh").click();
-      } catch (err) {
-        document.getElementById("pmSendStatus").textContent = "Failed: " + err.message;
-        toast("Send failed: " + err.message, "error");
-      } finally {
-        document.getElementById("pmStop").style.display = "none";
-      }
+        try {
+          const bannerMode = (document.querySelector('input[name="pmBanner"]:checked') || {}).value || "previous";
+          const customBanner = (document.getElementById("pmCustomBanner") || {}).value || "";
+          const customFooter = (document.getElementById("pmCustomFooter") || {}).value || "";
+          const DEFAULT_BANNER = "https://medha-program-management.pages.dev/assets/img/mail-footer.png";
+          const r = await Api.sendMail({
+            program,
+            subject,
+            bodyHtml: body,
+            recipients,
+            bannerMode,
+            bannerUrl: customBanner || DEFAULT_BANNER,
+            footerUrl: customFooter || "",
+            includeAutoNote: (function(){ const el = document.getElementById("pmAutoNote"); return el ? !!el.checked : true; })(),
+          });
+          fill.style.width = "100%";
+          const sentN = (r && r.sent) || 0;
+          txt.textContent = sentN + " / " + recipients.length + " sent";
+          document.getElementById("pmSendStatus").textContent = "Done.";
+          /* Instant Last Sent on rows that were accepted (before sheet refresh) */
+          if (sentN > 0) {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, "0");
+            const localStamp = pad(now.getDate()) + "-" + pad(now.getMonth() + 1) + "-" + now.getFullYear()
+              + " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+            const failedSet = new Set(((r && r.failedList) || []).map(String));
+            recipients.forEach((rec) => {
+              const email = String(rec.email || "").toLowerCase();
+              const failed = [...failedSet].some((f) => f.toLowerCase().indexOf(email) !== -1);
+              if (failed) return;
+              const m = members.find((x) => x.memberId === rec.memberId || String(x.email || "").toLowerCase() === email);
+              if (m) {
+                m.status = "Sent";
+                m.sentAt = localStamp;
+                decision[m.memberId] = "Sent";
+                if (m._example || /example/i.test(String(m.memberId || ""))) {
+                  rememberExSent(m.email, m.memberId, localStamp);
+                }
+                /* also remember by recipient email for the two fixed test inboxes */
+                if (email === "sahabulota@gmail.com" || email === "howladerahsan@gmail.com") {
+                  rememberExSent(email, m.memberId, localStamp);
+                }
+              } else if (email === "sahabulota@gmail.com" || email === "howladerahsan@gmail.com") {
+                rememberExSent(email, null, localStamp);
+              }
+            });
+            try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
+          }
+          showSendResult(r || {}, recipients.length);
+          /* Keep local Last Sent — full refresh was wiping timestamps from sheet lag */
+          try { paintTable(); paintStats(); paintLastSent(); } catch (e) {}
+          if (backend) {
+            Api.getQuota?.().then?.(q => {
+              if (q && q.remaining != null) {
+                setStat("pmQuota", q.remaining);
+                const t = document.getElementById("pmQuotaText");
+                if (t) t.textContent = "Left: " + q.remaining + " · Free ~ " + (q.estimatedFreeAt || "—");
+              }
+            });
+          }
+        } catch (err) {
+          document.getElementById("pmSendStatus").textContent = "Failed: " + err.message;
+          showSendResult({ sent: 0, failed: recipients.length, failedList: [err.message], message: err.message }, recipients.length);
+        } finally {
+          document.getElementById("pmStop").style.display = "none";
+        }
+      });
     });
     document.getElementById("pmStop").addEventListener("click", () => {
       document.getElementById("pmSendStatus").textContent = "Stopped.";
@@ -4977,19 +5218,96 @@ const App = (() => {
 
     // quota
     if (backend) {
-      Api.getQuota?.().then?.(r => {
-        if (r && r.remaining != null) {
-          setStat("pmQuota", r.remaining);
-          document.getElementById("pmQuotaText").textContent = "Left: " + r.remaining + " · Free ~ " + (r.estimatedFreeAt || "—");
+      const applyQuota = (r) => {
+        const rem = r && (r.remaining != null ? r.remaining : (r.quota != null ? r.quota : null));
+        if (rem != null && rem !== "") {
+          setStat("pmQuota", rem);
+          const t = document.getElementById("pmQuotaText");
+          if (t) t.textContent = "Left: " + rem + (r.estimatedFreeAt ? (" · Free ~ " + r.estimatedFreeAt) : "");
+        } else {
+          setStat("pmQuota", "—");
+          const t = document.getElementById("pmQuotaText");
+          const msg = (r && r.message) ? String(r.message).replace(/^Exception:\s*/i, "") : "";
+          if (t) {
+            t.textContent = msg
+              ? ("Quota error: " + msg.slice(0, 100))
+              : "Left: — · Run getEmailQuota in Apps Script → Allow → New version Deploy";
+          }
         }
-      });
+      };
+      Api.getQuota().then(applyQuota).catch(() => applyQuota(null));
+      /* second try after 1.2s in case first race with backend URL */
+      setTimeout(() => { Api.getQuota().then(applyQuota).catch(() => {}); }, 1200);
     }
     document.getElementById("pmWatcher").textContent = new Date().toLocaleString("en-GB");
 
     /* Start with — Select Program — as default so user chooses as needed */
     const sel = document.getElementById("pmProgram");
     if (sel) sel.value = "";
-    loadProgram("");
+
+    /* ---- Persist Program Mail (subject, body, To Send marks) across tabs ---- */
+    const PM_STATE_KEY = "mpm.programMail.uiState";
+    const saveProgramMailState = () => {
+      try {
+        const payload = {
+          program: (document.getElementById("pmProgram") && document.getElementById("pmProgram").value) || program || "",
+          subject: (document.getElementById("pmSubject") && document.getElementById("pmSubject").value) || "",
+          bodyHtml: (document.getElementById("pmBodyBn") && document.getElementById("pmBodyBn").innerHTML) || "",
+          decision: decision || {},
+          at: Date.now()
+        };
+        localStorage.setItem(PM_STATE_KEY, JSON.stringify(payload));
+      } catch (e) {}
+    };
+    window.__mpmSaveProgramMail = saveProgramMailState;
+    /* auto-save while typing / changing decisions */
+    ["pmSubject", "pmProgram"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("change", saveProgramMailState);
+        el.addEventListener("input", () => { clearTimeout(el._pmSaveT); el._pmSaveT = setTimeout(saveProgramMailState, 400); });
+      }
+    });
+    const bodyEl = document.getElementById("pmBodyBn");
+    if (bodyEl) {
+      bodyEl.addEventListener("input", () => { clearTimeout(bodyEl._pmSaveT); bodyEl._pmSaveT = setTimeout(saveProgramMailState, 400); });
+    }
+    /* decision dropdowns are re-painted — hook table changes */
+    const origPaintTable = typeof paintTable === "function" ? paintTable : null;
+    if (origPaintTable) {
+      paintTable = function () {
+        origPaintTable();
+        try {
+          document.querySelectorAll("#pmTable select, .pm-table select, select.pm-dec").forEach((s) => {
+            if (s.dataset.pmSaveBound) return;
+            s.dataset.pmSaveBound = "1";
+            s.addEventListener("change", saveProgramMailState);
+          });
+        } catch (e) {}
+        saveProgramMailState();
+      };
+    }
+
+    /* restore saved UI */
+    let restored = null;
+    try { restored = JSON.parse(localStorage.getItem(PM_STATE_KEY) || "null"); } catch (e) { restored = null; }
+    if (restored && restored.program) {
+      if (sel) sel.value = restored.program;
+      loadProgram(restored.program);
+      if (restored.decision && typeof restored.decision === "object") {
+        Object.keys(restored.decision).forEach((k) => { decision[k] = restored.decision[k]; });
+      }
+      try { paintTable(); paintStats(); } catch (e) {}
+      if (restored.subject && document.getElementById("pmSubject")) {
+        document.getElementById("pmSubject").value = restored.subject;
+      }
+      if (restored.bodyHtml && document.getElementById("pmBodyBn")) {
+        document.getElementById("pmBodyBn").innerHTML = restored.bodyHtml;
+      }
+      try { if (typeof paintMailPreview === "function") paintMailPreview(); } catch (e) {}
+    } else {
+      loadProgram("");
+    }
   };
 
   const renderComingSoon = (title, head) => {
