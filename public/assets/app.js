@@ -3135,20 +3135,6 @@ const App = (() => {
             <div class="file-empty">
               <span class="fe-ico">&#128193;</span>
               <b>No documents yet</b>
-              <p>Upload a file or add a link to a Google Doc / Drive file.
-                Each document has <b>Open</b> and <b>Rename</b> here.
-                To <b>remove</b> a document, use the <b>⋮</b> menu (password 2026).</p>
-              <div class="fe-demo">
-                <span class="fc-ico link">${ICONS.link}</span>
-                <span class="fc-body">
-                  <span class="fc-name">A document will look like this</span>
-                  <span class="fc-sub">drive.google.com/... &middot; just now</span>
-                </span>
-                <span class="fc-actions">
-                  <a class="fc-btn" tabindex="-1" aria-hidden="true">${ICONS.external}</a>
-                  <button class="fc-btn" tabindex="-1" aria-hidden="true">${ICONS.edit}</button>
-                </span>
-              </div>
             </div>`}
         </div>
       </section>
@@ -4389,7 +4375,7 @@ const App = (() => {
         <div class="pm-row">
           <label>Subject *</label>
           <div class="pm-input-row">
-            <input type="text" id="pmSubject" placeholder="Email subject" />
+            <input type="text" id="pmSubject" value="Medha Program — Welcome & Orientation Schedule (October 2026)" placeholder="Email subject" />
             <button class="pm-chip-btn" id="pmAiSubject">✨ AI Subject</button>
           </div>
         </div>
@@ -4409,7 +4395,7 @@ const App = (() => {
               <button class="pm-chip-btn ghost" id="pmTrBn" style="padding:3px 8px;font-size:11px;">⇄ Translate → EN</button>
               <span class="hint">* — type here, EN auto</span>
             </div>
-            <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write in Bangla — English appears beside it automatically..."></div>
+            <div id="pmBodyBn" contenteditable="true" class="pm-editor" data-placeholder="Write in Bangla — English appears beside it automatically...">আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ,\n\nঅনুগ্রহ করে আপনার নিজের মেম্বার আইডি ও ইমেইল ঠিক আছে কিনা দেখে নিন। ক্লাসের সময়, লাইভ সেশন ও কোর্স ম্যাটেরিয়াল নিয়ে প্রয়োজনীয় আপডেট পরবর্তী ইমেইলে পাঠানো হবে।\n\nসুন্দর শুভেচ্ছা,\nঅনলাইন টেক একাডেমি বাংলাদেশ</div>
             <div class="pm-fmt-bar">
               <button class="pm-fmt" data-fmt="bold" data-lang="bn"><b>B</b></button>
               <button class="pm-fmt" data-fmt="italic" data-lang="bn"><i>I</i></button>
@@ -4430,7 +4416,7 @@ const App = (() => {
               <button class="pm-chip-btn ghost" id="pmTrEn" style="padding:3px 8px;font-size:11px;">⇄ Translate → BN</button>
               <span class="hint">* — type here, BN auto</span>
             </div>
-            <div id="pmBodyEn" contenteditable="true" class="pm-editor" data-placeholder="Write in English — Bangla appears auto..."></div>
+            <div id="pmBodyEn" contenteditable="true" class="pm-editor" data-placeholder="Write in English — Bangla appears auto...">Dear Student,\n\nWelcome to Medha Program Management by Online Tech Academy. Please check your assigned Member ID and ensure you have verified your Medha access email.\n\n• Live classes: every Saturday and Tuesday at 8:30 PM BST\n• Course materials: available in the Files section\n• Support: post any query in the Student Support desk\n\nWarm regards,\nOTA Academic Coordination Team\nOnline Tech Academy Bangladesh</div>
             <div class="pm-fmt-bar">
               <button class="pm-fmt" data-fmt="bold" data-lang="en"><b>B</b></button>
               <button class="pm-fmt" data-fmt="italic" data-lang="en"><i>I</i></button>
