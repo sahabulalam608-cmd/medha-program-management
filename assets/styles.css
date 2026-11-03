@@ -1361,3 +1361,63 @@ body { opacity: 1; transition: opacity .12s ease; }
 .src-btn.btn-ghost { background: #fff; color: var(--text); border-color: var(--border); }
 .src-btn.btn-ghost:hover { border-color: var(--primary-2); color: var(--primary); box-shadow: 0 2px 8px rgba(124,58,237,.12); }
 .sn-hint { display: block; font-size: 12px; line-height: 1.65; opacity: .9; }
+
+
+/* ---- tab rocket (non-blocking) ---- */
+.mpm-rocket-fly {
+  position: fixed;
+  left: 50%;
+  top: 18%;
+  transform: translate(-50%, 0) scale(.6);
+  z-index: 100000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease, transform .65s cubic-bezier(.2,.8,.2,1);
+}
+.mpm-rocket-fly.go {
+  opacity: 1;
+  transform: translate(42vw, -28vh) scale(1);
+}
+.mpm-rocket-inner {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  filter: drop-shadow(0 6px 12px rgba(91,33,182,.35));
+}
+.mpm-rocket-emoji {
+  font-size: 36px;
+  line-height: 1;
+  display: block;
+  transform: rotate(-35deg);
+}
+.mpm-rocket-flame {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 14px;
+  height: 22px;
+  margin-left: -16px;
+  border-radius: 40% 40% 60% 60%;
+  background: radial-gradient(circle at 50% 20%, #fde68a 0%, #c084fc 40%, #6d28d9 75%, transparent 100%);
+  animation: mpmFlame .18s ease-in-out infinite alternate;
+  transform: rotate(35deg);
+  filter: blur(.3px);
+}
+@keyframes mpmFlame {
+  from { height: 16px; opacity: .85; }
+  to { height: 26px; opacity: 1; }
+}
+.mpm-rocket-label {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #5b21b6;
+  background: rgba(255,255,255,.92);
+  border: 1px solid #ede9fe;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(91,33,182,.12);
+}
