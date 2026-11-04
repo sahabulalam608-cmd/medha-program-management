@@ -30,7 +30,10 @@ const Login = (() => {
 
     if (!AUTH_USERS) { grantAccess(null); return; }
 
-    // already signed in?
+    /* purge old persistent sessions so a closed browser never stays logged in */
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+
+    // already signed in? (this tab only — sessionStorage)
     if (readSession()) { grantAccess(readSession(), true); return; }
 
     // focus the first field once the entrance animation settles
@@ -84,7 +87,8 @@ const Login = (() => {
 
   const readSession = () => {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+      /* session only — browser close = logged out (no localStorage session) */
+      const raw = sessionStorage.getItem(SESSION_KEY);
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   };
@@ -128,7 +132,8 @@ const Login = (() => {
     try {
       const payload = JSON.stringify({ username: match.username, name: match.name, at: Date.now() });
       sessionStorage.setItem(SESSION_KEY, payload);
-      localStorage.setItem(SESSION_KEY, payload);
+      /* do NOT write SESSION to localStorage — closing the browser must require login again */
+      try { localStorage.removeItem(SESSION_KEY); } catch (e2) {}
     } catch (err) { /* storage blocked — session continues anyway */ }
 
     /* keep the sign-in details only when the box is ticked */
