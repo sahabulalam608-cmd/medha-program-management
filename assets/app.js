@@ -9,7 +9,7 @@ const App = (() => {
     agreements: { title: "Agreements" },
     classes: { title: "Classes & attendance" },
     tasks: { title: "Tasks & workshops" },
-    feedback: { title: "Feedback" },
+    appreciation: { title: "Appreciation" },
     scores: { title: "Scores & results" },
     evidence: { title: "Evidence & reports" },
     mail: { title: "Mail portal" },
@@ -1027,7 +1027,7 @@ const App = (() => {
       case "agreements": renderAgreements(data, head); return;
       case "classes": setTimeout(() => bindSheetKeys(els.content), 0); renderClasses(data, head); return;
       case "tasks": renderComingSoon("Tasks & workshops", head); break;
-      case "feedback": renderComingSoon("Feedback", head); break;
+      case "appreciation": Appreciation.render(data, head, els.content); return;
       case "scores": setTimeout(() => bindSheetKeys(els.content), 0); renderScores(data, head); return;
       case "evidence": renderComingSoon("Evidence & reports", head); break;
       case "mail": renderMail(data, head); break;
