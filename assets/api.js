@@ -4887,6 +4887,22 @@ const Api = (() => {
 
     sendMail: async (payload) => backendCall("sendProgramMails", { payload }),
 
+    /* Appreciation — one Google Doc per selected member */
+    createAppreciationDocs: async (payload) => {
+      if (!getBackendUrl()) return { success: false, count: 0, urls: [], message: "Backend not connected" };
+      try {
+        const r = await backendCall("createAppreciationDocs", payload || {});
+        return {
+          success: !!(r && r.success),
+          count: Number((r && r.count) || 0),
+          urls: (r && r.urls) || [],
+          message: (r && r.message) || "",
+        };
+      } catch (e) {
+        return { success: false, count: 0, urls: [], message: String((e && e.message) || e) };
+      }
+    },
+
     getQuota: async () => {
       if (!getBackendUrl()) return { remaining: null, message: "Backend not connected" };
       try {
