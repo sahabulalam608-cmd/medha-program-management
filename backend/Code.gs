@@ -157,6 +157,7 @@ function handleApi_(action, data) {
     case "getFormState": return getFormState(data.id || "");
     case "checkFrameable": return checkFrameable(data);
     case "generateResultDocs": return generateResultDocs(data);
+    case "createAppreciationDocs": return createAppreciationDocs_(data);
     case "emailResults": return emailResults(data);
     case "getResults": return getResults();
     case "uploadResultAssets": return uploadResultAssets();
@@ -2350,6 +2351,49 @@ function generateResultDocs(payload) {
       } catch (e) { /* skip */ }
     }
     try { appendResultsRows_(month, members, "Google Docs"); } catch (e2) {}
+    return { success: made > 0, count: made, urls: urls, message: made + " Google Doc(s) created" };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
+/** Create a Google Doc certificate for every selected member (Appreciation). */
+function createAppreciationDocs_(payload) {
+  try {
+    payload = payload || {};
+    var members = payload.members || [];
+    if (!members.length) return { success: false, message: "No members selected" };
+    var urls = [], made = 0;
+    for (var i = 0; i < members.length; i++) {
+      try {
+        var m = members[i] || {};
+        var doc = DocumentApp.create("Certificate of Appreciation - " + (m.name || m.memberId || ""));
+        var b = doc.getBody();
+        b.appendParagraph(m.title || "CERTIFICATE OF APPRECIATION")
+          .setHeading(DocumentApp.ParagraphHeading.HEADING1);
+        b.appendParagraph(m.subtitle || "")
+          .setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        b.appendParagraph("");
+        b.appendParagraph(m.lead || "This certificate is proudly presented to");
+        b.appendParagraph(String(m.name || "").toUpperCase())
+          .setHeading(DocumentApp.ParagraphHeading.HEADING3);
+        b.appendParagraph("");
+        var lines = m.bodyLines || [];
+        for (var l = 0; l < lines.length; l++) b.appendParagraph(lines[l]);
+        b.appendParagraph("");
+        b.appendParagraph("Topics Covered").setHeading(DocumentApp.ParagraphHeading.HEADING2);
+        var topics = m.topics || [];
+        for (var t = 0; t < topics.length; t++) b.appendParagraph(topics[t]);
+        b.appendParagraph("");
+        b.appendParagraph("Sirajul Islam Jony").setHeading(DocumentApp.ParagraphHeading.HEADING3);
+        b.appendParagraph("Medha AI Project Manager");
+        b.appendParagraph("");
+        b.appendParagraph("Certificate ID: " + (m.certificateId || "") +
+          "        Issue Date: " + (m.issueDate || ""));
+        urls.push(doc.getUrl());
+        made++;
+      } catch (e) { /* skip this one */ }
+    }
     return { success: made > 0, count: made, urls: urls, message: made + " Google Doc(s) created" };
   } catch (e) {
     return { success: false, message: e.message };
