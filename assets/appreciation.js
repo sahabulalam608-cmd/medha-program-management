@@ -212,43 +212,45 @@ const Appreciation = (() => {
     });
   };
 
+  /* where every line of the certificate sits — measured on the artwork
+     the portal uses, so the live text lands on the printed spot */
+  const GEO = {"brand":{"title":{"c":216.1,"size":41.4,"serif":false,"bold":true,"color":"000000"},"subtitle":{"c":265.7,"size":26.5,"serif":false,"bold":true,"color":"000000"},"lead":{"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"c":431.4,"size":21.4},{"c":460.8,"size":21.4},{"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[551.2,602.4],"chipH":41.2,"chipGap":40,"chipSize":17.8,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"c":374.8,"size":38,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"c":199.3,"size":39.2,"serif":false,"bold":true,"color":"000000"},"subtitle":{"c":248.5,"size":24.4,"serif":false,"bold":true,"color":"000000"},"lead":{"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"c":417.2,"size":21.4},{"c":446.3,"size":21.4},{"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[522.2,575.7],"chipH":42.8,"chipGap":40,"chipSize":17.6,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"c":374.0,"size":38,"serif":true,"bold":true,"color":"000000","upper":false}}};
+
   /* ---------------- the certificate as HTML ---------------- */
+  /* The artwork carries the border, the frame, the watermark, the logos and the
+     signature. Every line of text is drawn live on the spot the printed
+     certificate uses, so the content editor really changes the certificate. */
   const CERT_CSS = `
 .appr-cert{
   width:1120px;height:819px;box-sizing:border-box;position:relative;
   background-color:#fff;background-repeat:no-repeat;background-position:center center;
   background-size:100% 100%;overflow:hidden;
 }
-.appr-cert.tpl-brand{background-image:var(--appr-bg-brand);}
-.appr-cert.tpl-regular{background-image:var(--appr-bg-regular);}
+.appr-t{
+  position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;line-height:1;z-index:20;pointer-events:none;white-space:nowrap;
+}
+.appr-t.display{font-family:"Montserrat","Poppins","Arial Black","Helvetica Neue",Arial,sans-serif;
+  font-weight:800;letter-spacing:-0.2px;}
+.appr-t.serif{font-family:"Nimbus Roman","Nimbus Roman No9 L","Times New Roman",Times,serif;}
+.appr-t.sans{font-family:Arial,Helvetica,sans-serif;}
+.appr-chips-row{
+  position:absolute;left:0;right:0;display:flex;justify-content:center;
+  align-items:center;gap:9px;z-index:20;pointer-events:none;
+}
+.appr-chip{
+  background:#ffffff;border:1.15px solid #696970;border-radius:21px;color:#111111;
+  display:flex;align-items:center;justify-content:center;padding:0 14px;white-space:nowrap;
+  box-sizing:border-box;
+}
 .appr-dyn-name{
-  position:absolute;left:10%;right:10%;top:45.5%;
-  transform:translateY(-50%);
-  text-align:center;
-  font-size:38px;font-weight:700;line-height:1.15;
-  color:#111111 !important;
-  font-family:"Nimbus Roman","Nimbus Roman No9 L","Times New Roman",Times,serif !important;
-  white-space:nowrap;overflow:visible;
-  z-index:20;pointer-events:none;
-  min-height:44px;
-  background:transparent;
-  text-shadow:0 0 6px #fff,0 0 10px #fff;
+  position:absolute;left:10%;right:10%;top:45.5%;transform:translateY(-50%);
+  text-align:center;font-size:38px;font-weight:700;color:#111111;
+  font-family:"Nimbus Roman","Times New Roman",Times,serif;z-index:20;
 }
-.appr-dyn-name.is-empty{visibility:hidden;text-shadow:none;}
-.appr-cert.tpl-brand .appr-dyn-name{text-transform:uppercase;top:45.8%;}
-.appr-cert.tpl-regular .appr-dyn-name{top:45.2%;}
-.appr-dyn-id{
-  position:absolute;left:7.5%;bottom:5.8%;
-  font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#444;z-index:20;
-  background:#fff;padding:2px 6px;border-radius:2px;
-}
-.appr-dyn-date{
-  position:absolute;right:7.5%;bottom:5.8%;
-  font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#444;z-index:20;text-align:right;
-  background:#fff;padding:2px 6px;border-radius:2px;
-}
-.appr-cert.tpl-regular .appr-dyn-id,
-.appr-cert.tpl-regular .appr-dyn-date{bottom:7.2%;}
+.appr-dyn-name.is-empty{visibility:hidden;}
+.appr-dyn-id{position:absolute;left:7.5%;bottom:5.8%;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#444;z-index:20;background:#fff;padding:2px 6px;}
+.appr-dyn-date{position:absolute;right:7.5%;bottom:5.8%;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#444;z-index:20;background:#fff;padding:2px 6px;}
 .appr-stage-wrap{position:relative;overflow:hidden;}
 .appr-stage{position:absolute;top:0;left:0;width:1120px;transform-origin:top left;}
 .appr-print-page{page-break-after:always;break-after:page;}
@@ -260,6 +262,9 @@ const Appreciation = (() => {
     catch (e) { return "assets/img/" + file; }
   };
 
+  /* the clean backgrounds travel with the page (data images) */
+  const APPR_BG = (typeof window !== "undefined" && window.APPR_BG) || {};
+
   const resolveName = (c) => {
     if (c && c.memberName && String(c.memberName).trim()) return String(c.memberName).trim();
     try {
@@ -269,8 +274,43 @@ const Appreciation = (() => {
     return "";
   };
 
+  /* a line of text, centred on the spot the printed certificate uses */
+  const line = (o, html, extra) => {
+    if (!o) return "";
+    const size = Math.round((o.size || 16) * 10) / 10;
+    const top = Math.round((o.c - size / 2) * 10) / 10;
+    const cls = o.serif ? "serif" : (o.display ? "display" : "sans");
+    const place = (o.left !== undefined)
+      ? ("left:" + o.left + "px;width:" + o.w + "px;right:auto;")
+      : "left:0;right:0;";
+    return '<div class="appr-t ' + cls + '" style="'
+      + place
+      + "top:" + top + "px;height:" + size + "px;font-size:" + size + "px;"
+      + (o.bold ? "font-weight:" + (o.display ? "800" : "700") + ";" : "")
+      + (o.color ? "color:#" + o.color + ";" : "")
+      + (extra || "") + '">' + html + "</div>";
+  };
+
+  const chipRow = (y, labels, size, g, row) => {
+    if (!labels || !labels.length) return "";
+    const h = (g && g.chipH) || 41.2;
+    const gap = (g && g.chipGap) || 40;
+    const widths = (g && g.chipW) || [];
+    return '<div class="appr-chips-row" style="top:' + y + 'px;height:' + h + 'px;gap:' + gap + 'px;">'
+      + labels.map((t, i) => {
+        const w = (widths[row] && widths[row][i]) ? widths[row][i] : null;
+        const style = "height:" + h + "px;font-size:" + Math.round(size * 10) / 10 + "px;"
+          + (w ? "min-width:" + w + "px;" : "");
+        return '<span class="appr-chip" style="' + style + '">' + esc(t) + "</span>";
+      }).join("")
+      + "</div>";
+  };
+
   const certificateHtml = (c) => {
     const tpl = (c && c.template === "regular") ? "regular" : "brand";
+    const g = GEO[tpl] || GEO.brand;
+    const bg = APPR_BG[tpl];
+    const hasBg = !!bg;
     const name = resolveName(c);
     let id = (c && c.certificateId) || "";
     if (!id) {
@@ -281,18 +321,35 @@ const Appreciation = (() => {
     }
     if (!id) id = "—";
     const date = (c && c.issueDate) || ST.issueDate || "—";
-    const brand = bgUrl("appr-brand-bg.png");
-    const regular = bgUrl("appr-regular-bg.png");
-    /* No name → hide text (full watermark). Name → text on top of watermark. */
-    const hasName = !!(name && String(name).trim());
-    const nameHtml = hasName ? esc(name) : '';
-    return (
-      '<div class="appr-cert tpl-' + tpl + '" style="--appr-bg-brand:url(\'' + brand + '\');--appr-bg-regular:url(\'' + regular + '\');">' +
-        '<div class="appr-dyn-name' + (hasName ? '' : ' is-empty') + '">' + nameHtml + '</div>' +
-        '<div class="appr-dyn-id">Certificate ID: ' + esc(id) + '</div>' +
-        '<div class="appr-dyn-date">Issue Date: ' + esc(date) + '</div>' +
-      '</div>'
-    );
+    const body = (c && c.body) || [];
+    const topics = (c && c.topics) || [];
+
+    const style = "background-image:url('" + (hasBg ? bg
+      : bgUrl(tpl === "regular" ? "appr-regular-bg.png" : "appr-brand-bg.png")) + "');";
+
+    let html = '<div class="appr-cert" style="' + style + '">';
+    if (hasBg) {
+      html += line(Object.assign({}, g.title, { display: true }), esc(c && c.title ? c.title : ""));
+      html += line(Object.assign({}, g.subtitle, { display: true }), esc(c && c.subtitle ? c.subtitle : ""));
+      html += line(g.lead, esc(c && c.lead ? c.lead : ""));
+      html += line(Object.assign({}, g.name, { display: false }),
+        esc(name), g.name.upper ? "text-transform:uppercase;" : "");
+      (g.body || []).forEach((b, i) => {
+        html += line(b, esc(body[i] || ""));
+      });
+      html += line(g.topics, "Topics Covered");
+      (g.chipRows || []).forEach((y, r) => {
+        html += chipRow(y, topics[r] || [], g.chipSize, g, r);
+      });
+      html += line(g.id, "Certificate ID: " + esc(id));
+      html += line(g.date, "Issue Date: " + esc(date));
+    } else {
+      html += '<div class="appr-dyn-name' + (name ? "" : " is-empty") + '">' + esc(name) + "</div>";
+      html += '<div class="appr-dyn-id">Certificate ID: ' + esc(id) + "</div>";
+      html += '<div class="appr-dyn-date">Issue Date: ' + esc(date) + "</div>";
+    }
+    html += "</div>";
+    return html;
   };
 
   /* ---------------- the certificate as a Word file ---------------- */
@@ -385,15 +442,15 @@ const Appreciation = (() => {
     const chipRows = (c.topics || []).filter((r) => r && r.length).map((row) => new TableRow({
       children: row.map((t) => new TableCell({
         width: { size: 20, type: WidthType.PERCENTAGE },
-        shading: { fill: C.chip },
-        margins: { top: 90, bottom: 90, left: 120, right: 120 },
+        shading: { fill: "FFFFFF" },
+        margins: { top: 110, bottom: 110, left: 160, right: 160 },
         borders: {
-          top: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-          bottom: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-          left: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
-          right: { style: BorderStyle.SINGLE, size: 1, color: "FFFFFF" },
+          top: { style: BorderStyle.SINGLE, size: 4, color: "696970" },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: "696970" },
+          left: { style: BorderStyle.SINGLE, size: 4, color: "696970" },
+          right: { style: BorderStyle.SINGLE, size: 4, color: "696970" },
         },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, bold: true, size: 20, color: "FFFFFF" })] })],
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t, bold: true, size: 20, color: "111111" })] })],
       })),
     }));
 
@@ -486,14 +543,21 @@ body{display:block;}
   };
 
   /* ---------------- history ---------------- */
+  /* 05/11/2026, 16:09:12 */
+  const stampNow = () => {
+    const d = new Date();
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, `
+      + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
   const log = (action) => {
     const sel = selected();
     const item = {
       id: "h" + Date.now(),
-      at: new Date().toLocaleString("en-GB"),
+      at: stampNow(),
       count: sel.length,
       template: ST.template,
-      issueDate: ST.issueDate,
+      issueDate: stampNow(),
       action: action,
       names: sel.map((m) => m.name).join(", ").slice(0, 180),
     };
@@ -718,9 +782,8 @@ body{display:block;}
         ${ST.history.length ? `
         <div style="overflow-x:auto;">
           <table class="tbl">
-            <thead><tr><th>When</th><th>Members</th><th>Template</th><th>Issue date</th><th>Action</th></tr></thead>
+            <thead><tr><th>Members</th><th>Template</th><th>Issue date</th><th>Action</th></tr></thead>
             <tbody>${ST.history.map((h) => `<tr>
-              <td class="dim">${esc(h.at)}</td>
               <td><b>${h.count}</b> <span class="dim">${esc(h.names)}</span></td>
               <td class="dim">${esc(TPL[h.template] ? TPL[h.template].label : h.template)}</td>
               <td class="dim">${esc(h.issueDate)}</td>
@@ -1043,9 +1106,6 @@ body{display:block;}
     if (!box) return;
     const stage = box.querySelector(".appr-preview-box .appr-stage");
     if (stage) stage.innerHTML = certificateHtml(ST.content);
-    const nameEl = box.querySelector(".appr-stage .appr-name");
-    const nm = box.querySelector("#apprName");
-    if (nameEl && nm && document.activeElement !== nm) nameEl.textContent = ST.content.memberName || "—";
   };
 
   /* ---------------- confirm popup ---------------- */
