@@ -214,7 +214,7 @@ const Appreciation = (() => {
 
   /* where every line of the certificate sits — measured on the artwork
      the portal uses, so the live text lands on the printed spot */
-  const GEO = {"brand":{"title":{"c":216.1,"size":41.4,"serif":false,"bold":true,"color":"000000"},"subtitle":{"c":265.7,"size":26.5,"serif":false,"bold":true,"color":"000000"},"lead":{"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"c":431.4,"size":21.4},{"c":460.8,"size":21.4},{"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[551.2,602.4],"chipH":41.2,"chipGap":40,"chipSize":17.8,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"c":374.8,"size":38,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"c":199.3,"size":39.2,"serif":false,"bold":true,"color":"000000"},"subtitle":{"c":248.5,"size":24.4,"serif":false,"bold":true,"color":"000000"},"lead":{"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"c":417.2,"size":21.4},{"c":446.3,"size":21.4},{"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[522.2,575.7],"chipH":42.8,"chipGap":40,"chipSize":17.6,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"c":374.0,"size":38,"serif":true,"bold":true,"color":"000000","upper":false}}};
+  const GEO = {"brand":{"title":{"fit":906.2,"c":216.1,"size":41.4,"serif":false,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":265.7,"size":26.5,"serif":false,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":431.4,"size":21.4},{"fit":597.7,"c":460.8,"size":21.4},{"fit":640.5,"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"fit":213.3,"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"fit":190.9,"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[551.2,602.4],"chipH":41.2,"chipGap":40,"chipSize":17.8,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"fit":700,"c":374.8,"size":38,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"fit":906.2,"c":199.3,"size":39.2,"serif":false,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":248.5,"size":24.4,"serif":false,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":417.2,"size":21.4},{"fit":753.5,"c":446.3,"size":21.4},{"fit":784.1,"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"fit":251.9,"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"fit":190.9,"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[522.2,575.7],"chipH":42.8,"chipGap":40,"chipSize":17.6,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"fit":700,"c":374.0,"size":38,"serif":true,"bold":true,"color":"000000","upper":false}}};
 
   /* ---------------- the certificate as HTML ---------------- */
   /* The artwork carries the border, the frame, the watermark, the logos and the
@@ -230,8 +230,9 @@ const Appreciation = (() => {
   position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;
   text-align:center;line-height:1;z-index:20;pointer-events:none;white-space:nowrap;
 }
-.appr-t.display{font-family:"Montserrat","Poppins","Arial Black","Helvetica Neue",Arial,sans-serif;
-  font-weight:800;letter-spacing:-0.2px;}
+.appr-fit{display:block;transform-origin:center center;max-width:100%;}
+.appr-t.display{font-family:"Montserrat","Poppins","Helvetica Neue","Segoe UI",Arial,sans-serif;
+  font-weight:800;letter-spacing:-0.3px;}
 .appr-t.serif{font-family:"Nimbus Roman","Nimbus Roman No9 L","Times New Roman",Times,serif;}
 .appr-t.sans{font-family:Arial,Helvetica,sans-serif;}
 .appr-chips-row{
@@ -283,12 +284,28 @@ const Appreciation = (() => {
     const place = (o.left !== undefined)
       ? ("left:" + o.left + "px;width:" + o.w + "px;right:auto;")
       : "left:0;right:0;";
-    return '<div class="appr-t ' + cls + '" style="'
+    const fitw = o.fit ? ' data-fitw="' + o.fit + '"' : "";
+    return '<div class="appr-t ' + cls + '"' + fitw + ' style="'
       + place
       + "top:" + top + "px;height:" + size + "px;font-size:" + size + "px;"
       + (o.bold ? "font-weight:" + (o.display ? "800" : "700") + ";" : "")
       + (o.color ? "color:#" + o.color + ";" : "")
-      + (extra || "") + '">' + html + "</div>";
+      + (extra || "") + '"><span class="appr-fit">' + html + "</span></div>";
+  };
+
+  /* Whatever font the visitor's computer has, the words must never run past
+     the printed line — the text is squeezed to the width of the certificate. */
+  const fitTexts = (root) => {
+    (root || document).querySelectorAll(".appr-t[data-fitw]").forEach((el) => {
+      const inner = el.firstElementChild;
+      if (!inner) return;
+      inner.style.transform = "";
+      const target = Number(el.getAttribute("data-fitw"));
+      const w = inner.offsetWidth;
+      if (!w || !target) return;
+      const k = Math.min(1, target / w);
+      if (k < 0.999) inner.style.transform = "scaleX(" + k.toFixed(4) + ")";
+    });
   };
 
   const chipRow = (y, labels, size, g, row) => {
@@ -539,6 +556,7 @@ body{display:block;}
 </style></head><body>${pages}</body></html>`
     );
     w.document.close();
+    try { fitTexts(w.document); } catch (e) { /* ignore */ }
     setTimeout(() => { try { w.focus(); w.print(); } catch (e) { /* ignore */ } }, 500);
   };
 
@@ -817,6 +835,7 @@ body{display:block;}
     `;
 
     fitAllStages(box);
+    fitTexts(box);
 
     if (!document.getElementById("apprStyle")) {
       const st = document.createElement("style");
@@ -1145,6 +1164,7 @@ body{display:block;}
 
     const root = document.getElementById(id);
     fitAllStages(root);
+    fitTexts(root);
     const close = () => { root.remove(); };
     root.querySelectorAll("[data-appr-close]").forEach((b) => b.addEventListener("click", close));
     root.querySelector(`#${id}_date`).addEventListener("change", (e) => {
@@ -1206,6 +1226,7 @@ body{display:block;}
       </div>`);
     const root = document.getElementById(id);
     fitAllStages(root);
+    fitTexts(root);
     root.querySelectorAll("[data-appr-close]").forEach((b) => b.addEventListener("click", () => root.remove()));
     requestAnimationFrame(() => root.classList.add("show"));
   };
