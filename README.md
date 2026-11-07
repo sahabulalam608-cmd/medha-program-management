@@ -17,6 +17,7 @@ A static website that reads and writes the program's Google Sheets.
 | `assets/vendor/docx.min.js` | Used to build the Word result cards |
 | `assets/appreciation.js` | The **Appreciation** page — certificate templates, preview, Word export |
 | `assets/appreciation-img.js` | The three certificate marks (OTA emblem, Medha logo, signature) as data images |
+| `assets/appreciation-bg.js` | The two certificate backgrounds (brand + regular) as data images — the artwork without any writing, so every line of the certificate can be edited live |
 | `assets/img/ota-emblem.png`, `assets/img/medha-logo-square.jpg`, `assets/img/signature.png` | The same artwork as plain files (fallback) |
 | `sw.js` | Service worker — keeps the portal fast and offline-friendly |
 | `backend/Code.gs` | The Google Apps Script backend (paste into script.google.com) |
@@ -35,8 +36,11 @@ Certificate of Appreciation for the program members:
 - two built-in templates — *Appreciation 1 — Brand Color* and *Appreciation 2 — Regular*
 - **Download DOCX**, **Print / Save as PDF**, **Save to Google Docs**, **Email to members**, **Preview all**
 - the file name is the Member ID and nothing else (`NCM-01.docx`)
-- every run is written to the Appreciation history; the template library keeps your own files
-  (deleting one asks for the master code `2026`)
+- every line of the certificate is drawn live on the artwork, so an edit in the
+  content editor shows up in the preview, in the print/PDF and in the Word file
+- the Appreciation history keeps the members, the template, the issue date
+  (`05/11/2026, 16:09:12`) and the action
+- the template library keeps your own files (deleting one asks for the master code `2026`)
 
 **Save to Google Docs** needs the backend: re-deploy `backend/Code.gs` (it now
 carries the `createAppreciationDocs` action). Without it the button says so
