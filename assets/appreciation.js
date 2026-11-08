@@ -815,7 +815,7 @@ body{display:block;}
           <button class="btn-primary" id="apprSend">Send to the selected members</button>
           <button class="btn-ghost" id="apprEmailClose">Close</button>
         </div>
-        <div class="appr-hint">Only the selected members receive this email. File name = Member ID only (e.g. NCM-P2-01).</div>
+
       </section>` : ""}
 
       <!-- history -->
@@ -1341,15 +1341,23 @@ body{display:block;}
     document.head.appendChild(s);
   });
 
+  const vendorUrl = (file) => {
+    try {
+      /* resolve relative to the site root so it works from any hash route */
+      const base = (document.querySelector('script[src*="appreciation.js"]') || {}).src || "";
+      if (base) return base.replace(/assets\/appreciation\.js.*$/i, "assets/vendor/" + file);
+    } catch (e) {}
+    return "assets/vendor/" + file;
+  };
+
   const ensurePdfLibs = async () => {
+    await loadScriptOnce(vendorUrl("html2canvas.min.js"), () => !!window.html2canvas);
     await loadScriptOnce(
-      "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
-      () => !!window.html2canvas
-    );
-    await loadScriptOnce(
-      "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
+      vendorUrl("jspdf.umd.min.js"),
       () => !!(window.jspdf && window.jspdf.jsPDF) || !!window.jsPDF
     );
+    if (!window.html2canvas) throw new Error("PDF engine (html2canvas) did not load. Hard-refresh the page (Ctrl+Shift+R).");
+    if (!((window.jspdf && window.jspdf.jsPDF) || window.jsPDF)) throw new Error("PDF engine (jsPDF) did not load. Hard-refresh the page (Ctrl+Shift+R).");
   };
 
   /** Render one certificate to a non-editable PDF (exact on-screen design). */
