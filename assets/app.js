@@ -1982,7 +1982,7 @@ const App = (() => {
           paintSelection();
           if (save && backend) {
             inp.disabled = true;
-            const r = await Api.setTrackerCell({ tab: month, row: inp.closest("tr") && rows.find(x => x.memberId === inp.dataset.mid)?._row, key: inp.dataset.k, value: v });
+            const r = await Api.setTrackerCell({ tab: month, row: rows.find(x => x.memberId === inp.dataset.mid)?._row, memberId: inp.dataset.mid, key: inp.dataset.k, value: v });
             inp.disabled = false;
             if (r && r.success) { toast("Saved to the sheet", "success"); loadTracker(); }
             else toast((r && r.message) || "Save failed", "error");

@@ -4409,7 +4409,7 @@ const Api = (() => {
       }
 
       const parseTrackerRows = (rows) => (rows || []).map((r, i) => {
-        const rec = { _row: i + 4 };
+        const rec = { _row: i + 1 }; /* gviz index is 0-based from top of tab */
         TRACKER_COLS.forEach((spec, ci) => {
           let v = r[ci];
           if (v instanceof Date) v = v.toISOString();
@@ -4417,9 +4417,22 @@ const Api = (() => {
           rec[spec.key] = v == null ? "" : String(v).trim();
         });
         return rec;
-      }).filter(r => r.memberId && r.name && /\d/.test(String(r.memberId)));
+      }).filter(r => r.memberId && r.name && /\d/.test(String(r.memberId)) && Number(r._row) >= 4);
 
-      // Prefer public sheet read by gid (works even when backend returns empty rows)
+      // Prefer backend — absolute _row matches the sheet (skips blank rows correctly)
+      if (getBackendUrl()) {
+        try {
+          const r = await backendCall("getNcmTracker", { tab });
+          const rows = (r && r.success && Array.isArray(r.rows)) ? r.rows : [];
+          const ok = rows.filter(x => x && x.memberId && x.name);
+          if (ok.length) {
+            cache.set(key, { v: ok, t: Date.now() });
+            return ok;
+          }
+        } catch (e) { console.warn("Backend tracker failed", e); }
+      }
+
+      // Public sheet read fallback (gviz) when backend is empty/unavailable
       try {
         const TRACKER_GIDS = { "October Tracker": "462029809" };
         const gid = TRACKER_GIDS[tab] || "";
@@ -4439,19 +4452,6 @@ const Api = (() => {
         }
       } catch (e) {
         console.warn("NCM tracker gviz failed:", e && e.message ? e.message : e);
-      }
-
-      // Backend only if it actually returns usable rows
-      if (getBackendUrl()) {
-        try {
-          const r = await backendCall("getNcmTracker", { tab });
-          const rows = (r && r.success && Array.isArray(r.rows)) ? r.rows : [];
-          const ok = rows.filter(x => x && x.memberId && x.name);
-          if (ok.length) {
-            cache.set(key, { v: ok, t: Date.now() });
-            return ok;
-          }
-        } catch (e) { console.warn("Backend tracker failed", e); }
       }
 
       return [];
