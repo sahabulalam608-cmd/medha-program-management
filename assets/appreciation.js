@@ -356,18 +356,18 @@ const Appreciation = (() => {
     if (hasBg) {
       html += line(Object.assign({}, g.title, { display: true }), esc(c && c.title ? c.title : ""));
       html += line(Object.assign({}, g.subtitle, { display: true }), esc(c && c.subtitle ? c.subtitle : ""));
-      html += line(g.lead, esc(c && c.lead ? c.lead : ""), "background:#ffffff;background-color:#ffffff;border-radius:2px;");
+      html += line(g.lead, esc(c && c.lead ? c.lead : ""));
       html += line(Object.assign({}, g.name, { display: false }),
         esc(name), g.name.upper ? "text-transform:uppercase;" : "");
       (g.body || []).forEach((b, i) => {
-        html += line(b, esc(body[i] || ""), "background:#ffffff;background-color:#ffffff;border-radius:2px;");
+        html += line(b, esc(body[i] || ""));
       });
-      html += line(g.topics, "Topics Covered", "background:#ffffff;background-color:#ffffff;border-radius:2px;");
+      html += line(g.topics, "Topics Covered");
       (g.chipRows || []).forEach((y, r) => {
         html += chipRow(y, topics[r] || [], g.chipSize, g, r);
       });
-      html += line(g.id, "Certificate ID: " + esc(id), "background:#ffffff;background-color:#ffffff;border-radius:2px;");
-      html += line(g.date, "Issue Date: " + esc(date), "background:#ffffff;background-color:#ffffff;border-radius:2px;");
+      html += line(g.id, "Certificate ID: " + esc(id));
+      html += line(g.date, "Issue Date: " + esc(date));
     } else {
       html += '<div class="appr-dyn-name' + (name ? "" : " is-empty") + '">' + esc(name) + "</div>";
       html += '<div class="appr-dyn-id">Certificate ID: ' + esc(id) + "</div>";
