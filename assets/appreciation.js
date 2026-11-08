@@ -533,47 +533,38 @@ const Appreciation = (() => {
   };
 
   /* ---------------- print / save as PDF ---------------- */
-  const printCertificate = (items) => {
+  const printCertificate = async (items) => {
     const list = Array.isArray(items) ? items : [items];
-    const w = window.open("", "_blank");
-    if (!w) { Notify.warn("Allow pop-ups to print or save the certificate."); return; }
-    const pages = list.map((c) =>
-      `<div class="appr-print-page">${certificateHtml(c)}</div>`
-    ).join("");
-    w.document.write(
-      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate</title>
-<style>${CERT_CSS}
-html,body{margin:0;padding:0;background:#fff;width:297mm;height:210mm;}
-body{display:block;}
-.appr-print-page{
-  width:297mm;height:210mm;margin:0;padding:0;box-sizing:border-box;
-  display:flex;justify-content:center;align-items:center;overflow:hidden;
-  page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;
-}
-.appr-print-page:last-child{page-break-after:auto;break-after:auto;}
-.appr-cert{
-  width:297mm !important;height:210mm !important;
-  max-width:297mm !important;max-height:210mm !important;
-  box-sizing:border-box;overflow:hidden;
-  background-size:100% 100% !important;
-  transform:none !important;
-}
-@page{size:A4 landscape;margin:0;}
-@media print{
-  html,body{margin:0;padding:0;width:297mm;height:210mm;background:#fff;
-    -webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .appr-print-page{width:297mm;height:210mm;margin:0;padding:0;overflow:hidden;}
-  .appr-cert{width:297mm !important;height:210mm !important;overflow:hidden;}
-}
-@media screen{
-  .appr-print-page{margin-bottom:12px;border:1px solid #e5e7eb;}
-}
-</style></head><body>${pages}</body></html>`
-    );
-    w.document.close();
-    try { fitTexts(w.document); } catch (e) { /* ignore */ }
-    setTimeout(() => { try { w.focus(); w.print(); } catch (e) { /* ignore */ } }, 500);
-  };
+    try {
+      await ensurePdfLibs();
+      const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+      if (!JsPDF) throw new Error("PDF engine (jsPDF) did not load");
+
+      /* Same PDF engine as email — pure certificate, no browser date/URL/page chrome */
+      let pdf = null;
+      for (let n = 0; n < list.length; n++) {
+        const canvas = await renderCertCanvas(list[n]);
+        const img = canvas.toDataURL("image/jpeg", 0.95);
+        if (!pdf) pdf = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+        else pdf.addPage("a4", "landscape");
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        pdf.addImage(img, "JPEG", 0, 0, pageW, pageH);
+      }
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (!w) {
+        Notify.warn("Allow pop-ups to print. You can also use Download / Save as PDF from the new tab.");
+        return;
+      }
+      setTimeout(() => {
+        try { w.focus(); w.print(); } catch (e) { /* user can print from the tab */ }
+      }, 700);
+    } catch (e) {
+      Notify.err("Print failed: " + (e && e.message ? e.message : "unknown error"));
+    }
+  }
 
   /* ---------------- history ---------------- */
   /* 05/11/2026, 16:09:12 */
@@ -1352,13 +1343,12 @@ body{display:block;}
   };
 
   /** Render one certificate to a non-editable PDF (exact on-screen design). */
-  const buildPdfBlob = async (c) => {
+  const renderCertCanvas = async (c) => {
     await ensurePdfLibs();
     const html2canvas = window.html2canvas;
-    const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-    if (!html2canvas || !JsPDF) throw new Error("PDF libraries failed to load");
+    if (!html2canvas) throw new Error("PDF engine (html2canvas) did not load");
 
-    /* Full-size certificate (1120×819), same CSS as live preview, no scale transform */
+    /* Full-size certificate (1120×819) — identical to live preview, no scale */
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
     host.style.cssText = "position:fixed;left:0;top:0;width:1120px;height:819px;opacity:0;pointer-events:none;z-index:-1;background:#fff;";
@@ -1386,7 +1376,7 @@ body{display:block;}
       }));
       try { if (typeof fitTexts === "function") fitTexts(host); } catch (e) {}
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const canvas = await html2canvas(cert, {
+      return await html2canvas(cert, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
@@ -1398,15 +1388,21 @@ body{display:block;}
         scrollX: 0,
         scrollY: 0,
       });
-      const pdf = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
-      pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
-      return pdf.output("blob");
     } finally {
       host.remove();
     }
+  };
+
+  const buildPdfBlob = async (c) => {
+    await ensurePdfLibs();
+    const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!JsPDF) throw new Error("PDF engine (jsPDF) did not load");
+    const canvas = await renderCertCanvas(c);
+    const pdf = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pageW, pageH);
+    return pdf.output("blob");
   };
 
 const safeFileId = (id) => String(id || "member").replace(/[^\w.-]+/g, "_");
