@@ -49,7 +49,7 @@ const App = (() => {
     applySyncPrefToPill();
     startClock();
     /* find out straight away whether the backend really answers */
-    checkBackendHealth().then(() => {
+    (Api.loadSharedBackendUrl ? Api.loadSharedBackendUrl() : Promise.resolve()).then(() => checkBackendHealth()).then(() => {
       applySyncPrefToPill();
       const m = document.getElementById("accountMenu");
       if (m) m.remove();
@@ -234,6 +234,7 @@ const App = (() => {
     els.configUrl = document.getElementById("configUrl");
     els.configSave = document.getElementById("configSave");
     els.configSkip = document.getElementById("configSkip");
+    els.configDisconnect = document.getElementById("configDisconnect");
     els.configClose = document.getElementById("configClose");
     els.sheetGuideBtn = document.getElementById("sheetGuideBtn");
     els.sheetGuideModal = document.getElementById("sheetGuideModal");
@@ -347,6 +348,15 @@ const App = (() => {
     const close = () => { els.configModal.hidden = true; };
     els.configClose.addEventListener("click", close);
     els.configSkip.addEventListener("click", close);
+    els.configDisconnect?.addEventListener("click", async () => {
+      if (!confirm("Disconnect backend for EVERYONE? The portal will go read-only on all devices until someone connects again.")) return;
+      try { Api.clearBackendUrl(); } catch (e) {}
+      state.backend = { url: "", ok: false, message: "", checked: true };
+      configStatus("ok", "Disconnected for everyone.");
+      applySyncPrefToPill();
+      renderSheetLinks();
+      setTimeout(() => { try { close(); } catch (e) {} }, 600);
+    });
     /* the status line inside the modal */
     const configStatus = (kind, text) => {
       const box = document.getElementById("configStatus");
@@ -1088,7 +1098,6 @@ const App = (() => {
       <section class="panel">
         <header class="panel-head">
           <h2 class="panel-title">Batch overview</h2>
-          <span class="panel-link" style="cursor:default;margin-right:14px;">Last mail = most recent delivery &middot; Mailed = Status &quot;Sent&quot;</span>
           <a class="panel-link" href="#" data-view="batches">View all →</a>
         </header>
         <div class="batch-grid">
@@ -1112,9 +1121,9 @@ const App = (() => {
                 <div class="act-body">
                   <p class="act-title">${escapeHtml(m.name)} <b style="color:var(--text-muted);font-weight:500;">received program mail</b></p>
                   <p class="act-sub">
-                    <span>${escapeHtml(m._tab)}</span>
-                    <span>${escapeHtml(m.memberId)}</span>
-                    <span>${escapeHtml(formatDate(m.sentAt))}</span>
+                    <span>${escapeHtml(m._tab || "")}</span>
+                    <span>${escapeHtml(m.memberId || "")}</span>
+                    <span>${escapeHtml(stamp(m.sentAt))}</span>
                   </p>
                 </div>
                 <span class="act-marker"></span>
@@ -1136,8 +1145,7 @@ const App = (() => {
       <section class="panel">
         <header class="panel-head">
           <h2 class="panel-title">All batches</h2>
-          <span class="panel-link" style="cursor:default;">Last mail = most recent delivery date &middot; Mailed = members with Status &quot;Sent&quot;</span>
-        </header>
+          </header>
         <div class="batch-grid">
           ${batchCard("NCM PART-1", data["NCM PART-1"], "active")}
           ${batchCard("NCM PART-2", data["NCM PART-2"], "active")}

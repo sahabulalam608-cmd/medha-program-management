@@ -62,7 +62,52 @@ const Api = (() => {
   };
   const setConfig = (cfg) => localStorage.setItem("mpm.config", JSON.stringify(cfg));
 
-  const getBackendUrl = () => getConfig().backendUrl || "";
+  /* Factory default — every device uses this until an admin clears it in Settings */
+  const DEFAULT_BACKEND_URL = "https://script.google.com/macros/s/AKfycbzi5PcsOkMRTmtZRFmy6-L6KkHWTfoQPQoeZ7rAx2pWrFyraayQq55UBjqCIRrG65yumQ/exec";
+
+  /* undefined = not loaded yet; null = key missing in sheet; string = loaded (may be "") */
+  let _sharedBackendUrl = undefined;
+
+  const parseSettingsKv_ = (gvizData) => {
+    const map = {};
+    try {
+      const table = (gvizData && gvizData.table) || {};
+      const rows = table.rows || [];
+      rows.forEach((r) => {
+        const cells = (r && r.c) || [];
+        const k = String((cells[0] && cells[0].v != null) ? cells[0].v : "").trim();
+        const v = String((cells[1] && cells[1].v != null) ? cells[1].v : "").trim();
+        if (k) map[k] = v;
+      });
+    } catch (e) {}
+    return map;
+  };
+
+  /** Load shared backend URL from the Settings sheet (works without backend via gviz). */
+  const loadSharedBackendUrl = async () => {
+    try {
+      const data = await readGviz(SHEET_ID, "Settings", 0, { timeout: 5000, retries: 1 });
+      const map = parseSettingsKv_(data);
+      if (Object.prototype.hasOwnProperty.call(map, "mpm.backendUrl")) {
+        _sharedBackendUrl = String(map["mpm.backendUrl"] || "").trim();
+      } else {
+        _sharedBackendUrl = null; /* key not present yet → fall back to default */
+      }
+    } catch (e) {
+      _sharedBackendUrl = null;
+    }
+    return getBackendUrl();
+  };
+
+  const getBackendUrl = () => {
+    /* Sheet is source of truth once loaded (including empty = cleared for everyone) */
+    if (_sharedBackendUrl !== undefined && _sharedBackendUrl !== null) {
+      return _sharedBackendUrl;
+    }
+    const local = String((getConfig().backendUrl || "")).trim();
+    if (local) return local;
+    return DEFAULT_BACKEND_URL;
+  };
 
   /* --- JSONP via Google Sheets gviz endpoint (cross-origin safe) --- */
   const jsonp = (tab) => readGviz(SHEET_ID, tab);
@@ -4178,10 +4223,35 @@ const Api = (() => {
     getConfig: () => getConfig(),
     setConfig: (cfg) => setConfig(cfg),
     setBackendUrl: (url) => {
-      setConfig({ ...getConfig(), backendUrl: url });
+      const u = String(url || "").trim();
+      setConfig({ ...getConfig(), backendUrl: u });
+      _sharedBackendUrl = u;
       cache.clear();
       try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      /* Persist for every device via Settings sheet */
+      if (u) {
+        fetch(u, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "setSharedBackendUrl", url: u }),
+        }).catch(function () {});
+      }
     },
+    clearBackendUrl: () => {
+      const current = getBackendUrl();
+      setConfig({ ...getConfig(), backendUrl: "" });
+      _sharedBackendUrl = "";
+      cache.clear();
+      try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      if (current) {
+        fetch(current, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "clearSharedBackendUrl" }),
+        }).catch(function () {});
+      }
+    },
+    loadSharedBackendUrl,
     isBackendConfigured: () => !!getBackendUrl(),
 
     /**
