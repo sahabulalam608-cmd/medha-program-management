@@ -179,7 +179,10 @@ const Api = (() => {
    *   "—" / "n/a" / ""    -> unchanged
    */
   const bdPhone = (v) => {
-    let s = String(v == null ? "" : v).trim();
+    if (v == null || v === "") return "";
+    /* gviz often returns phones as numbers (1784662254) */
+    if (typeof v === "number" && isFinite(v)) v = Math.round(v);
+    let s = String(v).trim();
     if (!s) return "";
     /* a numeric cell that was stored as text comes back as "1734806516.0" */
     if (/^\d+\.0$/.test(s)) s = s.slice(0, -2);
@@ -484,21 +487,40 @@ const Api = (() => {
       clearTimeout(t);
       if (!res.ok) throw new Error("CSV " + res.status);
       const text = await res.text();
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) throw new Error("CSV empty");
-      /* naive CSV split that handles quotes */
-      const split = (line) => {
-        const out = []; let cur = ""; let q = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') { q = !q; continue; }
-          if (ch === "," && !q) { out.push(cur); cur = ""; continue; }
+      /* RFC-style CSV parse — keeps newlines inside quoted address cells */
+      const parseCsv = (text) => {
+        const rows = [];
+        let row = [];
+        let cur = "";
+        let q = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          const next = text[i + 1];
+          if (q) {
+            if (ch === '"' && next === '"') { cur += '"'; i++; continue; }
+            if (ch === '"') { q = false; continue; }
+            cur += ch;
+            continue;
+          }
+          if (ch === '"') { q = true; continue; }
+          if (ch === ",") { row.push(cur.trim()); cur = ""; continue; }
+          if (ch === "\n" || (ch === "\r" && next === "\n") || ch === "\r") {
+            if (ch === "\r" && next === "\n") i++;
+            row.push(cur.trim());
+            if (row.some(c => c)) rows.push(row);
+            row = [];
+            cur = "";
+            continue;
+          }
           cur += ch;
         }
-        out.push(cur);
-        return out.map(s => s.trim());
+        row.push(cur.trim());
+        if (row.some(c => c)) rows.push(row);
+        return rows;
       };
-      const headers = split(lines[0]).map(h => h.replace(/^"|"$/g, "").trim());
+      const table = parseCsv(text);
+      if (table.length < 2) throw new Error("CSV empty");
+      const headers = table[0].map(h => String(h || "").replace(/^"|"$/g, "").trim());
       const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const hNorm = headers.map(norm);
       const find = (...keys) => {
@@ -522,16 +544,18 @@ const Api = (() => {
       const iMedha = find("medhaemail", "medha_email", "medha email");
       const iTran = find("tranid", "tran_id", "transactionid");
       if (iName < 0 && iEmail < 0) throw new Error("CSV headers missing");
+      const iId = find("memberid", "member id", "id");
       const rows = [];
-      for (let r = 1; r < lines.length; r++) {
-        const cols = split(lines[r]).map(c => c.replace(/^"|"$/g, "").trim());
+      for (let r = 1; r < table.length; r++) {
+        const cols = table[r].map(c => String(c || "").replace(/^"|"$/g, "").trim());
         const name = iName >= 0 ? cols[iName] || "" : "";
         const email = iEmail >= 0 ? cols[iEmail] || "" : "";
         if (!name && !email) continue;
         const n = String(r);
+        const mid = (iId >= 0 && cols[iId]) ? cols[iId] : ("NCM-P2-" + (n.length < 2 ? "0" + n : n));
         rows.push({
           sl: cols[0] || String(r),
-          memberId: "NCM-P2-" + (n.length < 2 ? "0" + n : n),
+          memberId: mid,
           name, email,
           status: "", sentAt: "",
           phone: iPhone >= 0 ? bdPhone(cols[iPhone]) : "",
@@ -4267,9 +4291,10 @@ const Api = (() => {
       const p2ok = (data) => {
         const p2 = (data && data["NCM PART-2"]) || [];
         if (!p2.length) return false;
-        /* Master File enrichment present? */
-        const sample = p2.slice(0, 15);
-        return sample.some(m => m.phone || m.address || m.whatsapp || m.medhaEmail || m.tranId || m.courseMail);
+        /* Master File enrichment = real profile fields (phone/address), not just email */
+        const sample = p2.slice(0, 20);
+        const rich = sample.filter(m => m.phone || m.address || m.whatsapp).length;
+        return rich >= 3; /* at least a few rows must carry phone/address */
       };
       if (cached && p2ok(cached) && !force) {
         backgroundRefresh();

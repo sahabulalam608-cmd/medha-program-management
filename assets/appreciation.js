@@ -214,7 +214,7 @@ const Appreciation = (() => {
 
   /* where every line of the certificate sits — measured on the artwork
      the portal uses, so the live text lands on the printed spot */
-  const GEO = {"brand":{"title":{"fit":906.2,"c":216.1,"size":42,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":265.7,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":431.4,"size":21.4},{"fit":597.7,"c":460.8,"size":21.4},{"fit":640.5,"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"fit":213.3,"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"fit":190.9,"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[551.2,602.4],"chipH":41.2,"chipGap":40,"chipSize":17.8,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"fit":700,"c":374.8,"size":38,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"fit":906.2,"c":199.3,"size":42,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":248.5,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":417.2,"size":21.4},{"fit":753.5,"c":446.3,"size":21.4},{"fit":784.1,"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"fit":251.9,"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"fit":190.9,"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[522.2,575.7],"chipH":42.8,"chipGap":40,"chipSize":17.6,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"fit":700,"c":374.0,"size":38,"serif":true,"bold":true,"color":"000000","upper":false}}};
+  const GEO = {"brand":{"title":{"fit":906.2,"c":216.1,"size":42,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":265.7,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":431.4,"size":21.4},{"fit":597.7,"c":460.8,"size":21.4},{"fit":640.5,"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"fit":213.3,"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"fit":190.9,"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[548.0,590.0],"chipH":36,"chipGap":10,"chipSize":15.5,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"fit":700,"c":374.8,"size":38,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"fit":906.2,"c":199.3,"size":42,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":248.5,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":417.2,"size":21.4},{"fit":753.5,"c":446.3,"size":21.4},{"fit":784.1,"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"fit":251.9,"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"fit":190.9,"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[518.0,560.0],"chipH":36,"chipGap":10,"chipSize":15.5,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"fit":700,"c":374.0,"size":38,"serif":true,"bold":true,"color":"000000","upper":false}}};
 
   /* ---------------- the certificate as HTML ---------------- */
   /* The artwork carries the border, the frame, the watermark, the logos and the
@@ -244,12 +244,14 @@ const Appreciation = (() => {
 .appr-t.sans{font-family:Arial,Helvetica,sans-serif;}
 .appr-chips-row{
   position:absolute;left:0;right:0;display:flex;justify-content:center;
-  align-items:center;gap:9px;z-index:20;pointer-events:none;
+  align-items:center;gap:10px;z-index:20;pointer-events:none;
 }
 .appr-chip{
-  background:#ffffff;border:1.15px solid #696970;border-radius:21px;color:#111111;
-  display:flex;align-items:center;justify-content:center;padding:0 14px;white-space:nowrap;
-  box-sizing:border-box;
+  background:#ffffff;border:1.1px solid #5c5c63;border-radius:18px;color:#111111;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0 12px;white-space:nowrap;box-sizing:border-box;
+  font-family:Arial,Helvetica,sans-serif;font-weight:500;letter-spacing:0;
+  line-height:1;
 }
 .appr-dyn-name{
   position:absolute;left:10%;right:10%;top:45.5%;transform:translateY(-50%);
@@ -318,8 +320,8 @@ const Appreciation = (() => {
 
   const chipRow = (y, labels, size, g, row) => {
     if (!labels || !labels.length) return "";
-    const h = (g && g.chipH) || 41.2;
-    const gap = (g && g.chipGap) || 40;
+    const h = (g && g.chipH) || 36;
+    const gap = (g && g.chipGap) || 10;
     const widths = (g && g.chipW) || [];
     return '<div class="appr-chips-row" style="top:' + y + 'px;height:' + h + 'px;gap:' + gap + 'px;">'
       + labels.map((t, i) => {
