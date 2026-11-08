@@ -87,9 +87,8 @@ const Appreciation = (() => {
 
   /* Med-NCM-P1-001 / Med-NCM-P2-001 */
   const certificateIdFor = (memberId, isP2) => {
-    const id = String(memberId || "").trim();
-    const n = (id.replace(/\D/g, "") || "1").padStart(3, "0");
-    return `Med-NCM-${isP2 ? "P2" : "P1"}-${n}`;
+    /* member id only — no Med- prefix or other decoration */
+    return String(memberId || "").trim();
   };
 
   /* ---------------- state ---------------- */
@@ -115,7 +114,6 @@ const Appreciation = (() => {
     tab: "all",
     q: "",
     emailOpen: false,
-    attachFormat: "pdf", /* pdf = locked design (recommended) | docx = editable Word */
     emailSubject: "Your Certificate of Appreciation — Medha AI",
     emailBody:
       "Assalamu Alaikum,\n\nPlease find your Certificate of Appreciation for completing the four-month Artificial Intelligence with Business Development program.\n\nWarm regards,\nOnline Tech Academy & Medha AI",
@@ -215,7 +213,7 @@ const Appreciation = (() => {
 
   /* where every line of the certificate sits — measured on the artwork
      the portal uses, so the live text lands on the printed spot */
-  const GEO = {"brand":{"title":{"fit":906.2,"c":216.1,"size":42,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":265.7,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":431.4,"size":21.4},{"fit":597.7,"c":460.8,"size":21.4},{"fit":640.5,"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"fit":213.3,"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"fit":190.9,"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[548.0,590.0],"chipH":36,"chipGap":10,"chipSize":15.5,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"fit":700,"c":374.8,"size":38,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"fit":906.2,"c":199.3,"size":42,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":248.5,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":417.2,"size":21.4},{"fit":753.5,"c":446.3,"size":21.4},{"fit":784.1,"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"fit":251.9,"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"fit":190.9,"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[518.0,560.0],"chipH":36,"chipGap":10,"chipSize":15.5,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"fit":700,"c":360.0,"size":38,"serif":true,"bold":true,"color":"000000","upper":false}}};
+  const GEO = {"brand":{"title":{"fit":906.2,"c":216.1,"size":40,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":265.7,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":320.3,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":431.4,"size":21.4},{"fit":597.7,"c":460.8,"size":21.4},{"fit":640.5,"c":489.8,"size":21.4}],"topics":{"c":534.4,"size":19.4,"color":"191919"},"id":{"fit":213.3,"c":728.8,"size":14.8,"color":"55555C","left":155.3,"w":213.3},"date":{"fit":190.9,"c":729.5,"size":14.8,"color":"55555C","left":752,"w":190.9},"chipRows":[548.0,590.0],"chipH":36,"chipGap":10,"chipSize":15.5,"chipW":[[135.1,108.4,109.2,110.7,120.6],[103.8,126,154.3,97.7,91.6]],"name":{"fit":700,"c":374.8,"size":36,"serif":true,"bold":true,"color":"000000","upper":true}},"regular":{"title":{"fit":906.2,"c":199.3,"size":40,"serif":true,"bold":true,"color":"000000"},"subtitle":{"fit":913.9,"c":248.5,"size":28,"serif":true,"bold":true,"color":"000000"},"lead":{"fit":707.7,"c":305.8,"size":21.4,"serif":false,"bold":false,"color":"55555C"},"body":[{"fit":753.5,"c":417.2,"size":21.4},{"fit":753.5,"c":446.3,"size":21.4},{"fit":784.1,"c":475.3,"size":21.4}],"topics":{"c":507.3,"size":19.4,"color":"191919"},"id":{"fit":251.9,"c":717.9,"size":14.5,"color":"55555C","left":135.9,"w":251.9},"date":{"fit":190.9,"c":717.9,"size":14.5,"color":"55555C","left":752,"w":190.9},"chipRows":[518.0,560.0],"chipH":36,"chipGap":10,"chipSize":15.5,"chipW":[[141.2,125.2,109.2,117.5,137.5],[109.9,143.5,168,109.2,103.8]],"name":{"fit":700,"c":360.0,"size":36,"serif":true,"bold":true,"color":"000000","upper":false}}};
 
   /* ---------------- the certificate as HTML ---------------- */
   /* The artwork carries the border, the frame, the watermark, the logos and the
@@ -545,24 +543,30 @@ const Appreciation = (() => {
     w.document.write(
       `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate</title>
 <style>${CERT_CSS}
-html,body{margin:0;padding:0;background:#fff;}
+html,body{margin:0;padding:0;background:#fff;width:297mm;height:210mm;}
 body{display:block;}
-.appr-print-page{display:flex;justify-content:center;align-items:center;padding:8px;box-sizing:border-box;}
-@page{size:A4 landscape;margin:6mm;}
+.appr-print-page{
+  width:297mm;height:210mm;margin:0;padding:0;box-sizing:border-box;
+  display:flex;justify-content:center;align-items:center;overflow:hidden;
+  page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;
+}
+.appr-print-page:last-child{page-break-after:auto;break-after:auto;}
+.appr-cert{
+  width:297mm !important;height:210mm !important;
+  max-width:297mm !important;max-height:210mm !important;
+  box-sizing:border-box;overflow:hidden;
+  background-size:100% 100% !important;
+  transform:none !important;
+}
+@page{size:A4 landscape;margin:0;}
 @media print{
-  html,body{margin:0;padding:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  .appr-print-page{padding:0;width:100%;height:100%;min-height:0;
-    page-break-after:always;break-after:page;
-    display:flex;align-items:center;justify-content:center;}
-  .appr-print-page:last-child{page-break-after:auto;break-after:auto;}
-  .appr-cert{
-    width:285mm;height:208mm;max-width:100%;max-height:100%;
-    box-sizing:border-box;overflow:hidden;
-    background-size:100% 100% !important;}
-  .appr-dyn-name{font-size:34px;}
+  html,body{margin:0;padding:0;width:297mm;height:210mm;background:#fff;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .appr-print-page{width:297mm;height:210mm;margin:0;padding:0;overflow:hidden;}
+  .appr-cert{width:297mm !important;height:210mm !important;overflow:hidden;}
 }
 @media screen{
-  .appr-print-page{margin-bottom:16px;}
+  .appr-print-page{margin-bottom:12px;border:1px solid #e5e7eb;}
 }
 </style></head><body>${pages}</body></html>`
     );
@@ -799,17 +803,6 @@ body{display:block;}
             <input type="text" id="apprCustomBanner" placeholder="Banner image URL (optional)" value="${esc(ST.customBanner || "")}" style="width:100%;padding:9px 11px;border-radius:8px;border:1.5px solid #e0e7ff;margin-bottom:6px;font:inherit;font-size:12.5px;" />
             <input type="text" id="apprCustomFooter" placeholder="Footer image URL (optional)" value="${esc(ST.customFooter || "")}" style="width:100%;padding:9px 11px;border-radius:8px;border:1.5px solid #e0e7ff;font:inherit;font-size:12.5px;" />
           </div>
-        </div>
-        <div style="margin-top:14px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa;">
-          <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">Attachment format</div>
-          <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;cursor:pointer;font-size:13px;color:#111;">
-            <input type="radio" name="apprAttachFmt" id="apprFmtPdf" value="pdf" ${ST.attachFormat !== "docx" ? "checked" : ""} style="margin-top:3px;" />
-            <span><b>PDF</b> — recommended · design, fonts & logo locked · cannot be edited</span>
-          </label>
-          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:#111;">
-            <input type="radio" name="apprAttachFmt" id="apprFmtDocx" value="docx" ${ST.attachFormat === "docx" ? "checked" : ""} style="margin-top:3px;" />
-            <span><b>DOCX</b> — Word file · recipient can edit text</span>
-          </label>
         </div>
         <div class="appr-actions" style="margin-top:12px;">
           <button class="btn-primary" id="apprSend">Send to the selected members</button>
@@ -1127,8 +1120,6 @@ body{display:block;}
     on("#apprCustomBanner", "input", (e) => { ST.customBanner = e.target.value; });
     on("#apprCustomFooter", "input", (e) => { ST.customFooter = e.target.value; });
     on("#apprEmailClose", "click", () => { ST.emailOpen = false; paint(); });
-    on("#apprFmtPdf", "change", () => { ST.attachFormat = "pdf"; });
-    on("#apprFmtDocx", "change", () => { ST.attachFormat = "docx"; });
     on("#apprSend", "click", sendMail);
 
     on("#apprUpload", "click", () => { const f = box.querySelector("#apprFile"); if (f) f.click(); });
@@ -1367,32 +1358,50 @@ body{display:block;}
     const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
     if (!html2canvas || !JsPDF) throw new Error("PDF libraries failed to load");
 
+    /* Full-size certificate (1120×819), same CSS as live preview, no scale transform */
     const host = document.createElement("div");
     host.setAttribute("aria-hidden", "true");
-    host.style.cssText = "position:fixed;left:-12000px;top:0;width:1467px;background:#fff;z-index:-1;pointer-events:none;";
-    host.innerHTML = certificateHtml(c);
+    host.style.cssText = "position:fixed;left:0;top:0;width:1120px;height:819px;opacity:0;pointer-events:none;z-index:-1;background:#fff;";
+    const style = document.createElement("style");
+    style.textContent = CERT_CSS;
+    host.appendChild(style);
+    const wrap = document.createElement("div");
+    wrap.innerHTML = certificateHtml(c);
+    host.appendChild(wrap);
     document.body.appendChild(host);
-    const stage = host.querySelector(".appr-stage") || host.firstElementChild;
+    const cert = host.querySelector(".appr-cert") || wrap.firstElementChild;
     try {
-      /* wait for background image */
-      const imgs = stage ? stage.querySelectorAll("img") : [];
+      if (cert) {
+        cert.style.width = "1120px";
+        cert.style.height = "819px";
+        cert.style.transform = "none";
+        cert.style.maxWidth = "none";
+        cert.style.maxHeight = "none";
+      }
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+      const imgs = host.querySelectorAll("img");
       await Promise.all(Array.from(imgs).map((img) => {
-        if (img.complete) return Promise.resolve();
-        return new Promise((res) => { img.onload = img.onerror = () => res(); setTimeout(res, 1500); });
+        if (img.complete && img.naturalWidth) return Promise.resolve();
+        return new Promise((res) => { img.onload = img.onerror = () => res(); setTimeout(res, 2000); });
       }));
+      try { if (typeof fitTexts === "function") fitTexts(host); } catch (e) {}
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const canvas = await html2canvas(stage, {
+      const canvas = await html2canvas(cert, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
-        width: stage.offsetWidth || 1467,
-        height: stage.offsetHeight || 1073,
+        width: 1120,
+        height: 819,
+        windowWidth: 1120,
+        windowHeight: 819,
+        scrollX: 0,
+        scrollY: 0,
       });
       const pdf = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
-      const imgData = canvas.toDataURL("image/jpeg", 0.93);
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
       pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
       return pdf.output("blob");
     } finally {
@@ -1400,7 +1409,7 @@ body{display:block;}
     }
   };
 
-  const safeFileId = (id) => String(id || "member").replace(/[^\w.-]+/g, "_");
+const safeFileId = (id) => String(id || "member").replace(/[^\w.-]+/g, "_");
 
   const sendMail = async () => {
     const sel = selected();
@@ -1410,7 +1419,6 @@ body{display:block;}
       ST.emailHtml = ed.innerHTML;
       ST.emailBody = (ed.innerText || "").trim();
     }
-    const fmt = (ST.attachFormat === "docx") ? "docx" : "pdf";
     const btn = ST.container.querySelector("#apprSend");
     if (btn) { btn.disabled = true; btn.textContent = "Building certificates…"; }
     try {
@@ -1427,21 +1435,12 @@ body{display:block;}
           memberName: m.name, memberEmail: m.email, memberId: m.memberId,
           certificateId: certificateIdFor(m.memberId, isP2(m)),
         });
-        let blob, mime, ext;
-        if (fmt === "pdf") {
-          blob = await buildPdfBlob(c);
-          mime = "application/pdf";
-          ext = ".pdf";
-        } else {
-          blob = await buildDocx(c);
-          mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-          ext = ".docx";
-        }
+        const blob = await buildPdfBlob(c);
         const data = await blobToBase64(blob);
         attachments.push({
           email: m.email,
-          filename: safeFileId(m.memberId) + ext,
-          mimeType: mime,
+          filename: safeFileId(m.memberId) + ".pdf",
+          mimeType: "application/pdf",
           data: data,
         });
       }
@@ -1461,8 +1460,7 @@ body{display:block;}
         customFooterUrl: ST.customFooter || "",
       });
       log("Email");
-      const label = fmt === "pdf" ? "PDF" : "DOCX";
-      Notify.ok(`Sent to ${r && r.sent != null ? r.sent : recipients.length} member(s) with ${label} attached.`);
+      Notify.ok(`Sent to ${r && r.sent != null ? r.sent : recipients.length} member(s) with PDF attached.`);
     } catch (e) {
       Notify.err("Could not send: " + (e && e.message ? e.message : "unknown error"));
     }
