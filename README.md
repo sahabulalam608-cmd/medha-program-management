@@ -26,6 +26,24 @@ A static website that reads and writes the program's Google Sheets.
 | `_headers` | Security headers — Cloudflare Pages and Netlify read this automatically |
 | `_redirects` | Sends every address to the portal |
 
+## The sidebar launchers
+
+Three items in the sidebar open something outside the portal:
+
+| Item | What it does |
+|---|---|
+| **Medha Ai** | Opens `http://app.medha.pro/` — the Medha Ai app |
+| **OTAHelpDesk** | Opens `https://admin.otahelpdesk.com/` — the OTA help desk |
+| **Medha Support** | The in-portal support desk (`https://app.medha.pro/ops/support`) |
+
+**Medha Ai** and **OTAHelpDesk** work the same way: click the item and a small
+menu opens under it with **New Tab** (a new tab in this same browser) and
+**Open in this Tab** (replaces the current page). Both entries are real links,
+so the browser opens them itself and no popup blocker can stop them.
+
+**Medha Support** keeps its own page inside the portal — the launcher, the
+inline frame and the native ticket list.
+
 ## The Appreciation page
 
 The sidebar item **Appreciation** replaces the old Feedback tab. It makes a
