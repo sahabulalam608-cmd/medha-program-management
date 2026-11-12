@@ -33,6 +33,7 @@ const App = (() => {
   const init = () => {
     cacheElements();
     bindNav();
+    bindMedhaAi();
     bindTopbar();
     bindConfigModal();
     bindSignOut();
@@ -249,6 +250,76 @@ const App = (() => {
         else setView(v);
       });
     });
+  };
+
+  /* --- Medha Ai launcher: open app.medha.pro in a new tab or in this one --- */
+  const MEDHA_AI_URL = "http://app.medha.pro/";
+
+  const bindMedhaAi = () => {
+    const btn = document.getElementById("medhaAiBtn");
+    if (!btn) return;
+    const wrap = btn.closest(".medha-item") || btn.parentElement;
+    let menu = null;
+
+    const close = () => {
+      if (!menu) return;
+      const m = menu;
+      menu = null;
+      m.classList.remove("show");
+      setTimeout(() => m.remove(), 260);
+      wrap && wrap.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+      document.removeEventListener("click", onOutside, true);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+
+    const onOutside = (e) => {
+      if (menu && !menu.contains(e.target) && e.target !== btn) close();
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+
+    const open = () => {
+      if (menu) { close(); return; }
+      menu = document.createElement("div");
+      menu.className = "medha-menu";
+      menu.id = "medhaAiMenu";
+      menu.setAttribute("role", "menu");
+      menu.innerHTML = `
+        <button type="button" class="medha-menu-item" data-medha="new" role="menuitem">New Tab</button>
+        <button type="button" class="medha-menu-item" data-medha="self" role="menuitem">Open in this Tab</button>`;
+      document.body.appendChild(menu);
+
+      /* sit right under the sidebar item */
+      const r = btn.getBoundingClientRect();
+      const w = menu.offsetWidth;
+      const left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+      menu.style.left = Math.round(left) + "px";
+      menu.style.top = Math.round(r.bottom + 6) + "px";
+
+      requestAnimationFrame(() => menu && menu.classList.add("show"));
+      wrap && wrap.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+
+      menu.querySelectorAll("[data-medha]").forEach((b) => {
+        b.addEventListener("click", () => {
+          const mode = b.dataset.medha;
+          close();
+          if (mode === "new") window.open(MEDHA_AI_URL, "_blank", "noopener");
+          else window.location.href = MEDHA_AI_URL;
+        });
+      });
+
+      setTimeout(() => {
+        document.addEventListener("click", onOutside, true);
+        document.addEventListener("keydown", onKey);
+        window.addEventListener("resize", close);
+        window.addEventListener("scroll", close, true);
+      }, 0);
+    };
+
+    btn.addEventListener("click", (e) => { e.stopPropagation(); open(); });
   };
 
   const bindTopbar = () => {
