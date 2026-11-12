@@ -8,7 +8,7 @@
  *    CACHE FIRST, refreshed quietly in the background.
  *  - Google Sheets: always the network, because the data must be live.
  */
-const CACHE = "mpm-v66";
+const CACHE = "mpm-v67";
 const SHELL = [
   "./",
   "./index.html",
@@ -30,6 +30,8 @@ const SHELL = [
   "./assets/appreciation.js",
   "./assets/appreciation-bg.js",
   "./assets/appreciation-img.js",
+  "./assets/img/medha-ai-logo.png",
+  "./assets/img/ota-helpdesk-logo.png",
   "./assets/img/medha-logo-256.png",
   "./assets/img/medha-logo-512.png",
   "./assets/img/ota-logo-1000.png",
