@@ -174,6 +174,15 @@ const Login = (() => {
       sessionStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(SESSION_KEY);
     } catch (e) {}
+    /* the address bar goes back to the plain portal link — no leftover view
+       hash such as #members/p2 after a sign-out */
+    try {
+      const clean = location.origin + location.pathname;
+      history.replaceState(null, "", clean);
+      if (location.hash) location.hash = "";
+    } catch (e) {
+      try { location.hash = ""; } catch (e2) {}
+    }
     document.body.classList.remove("logged-in");
     screen.classList.remove("removed", "hide");
     card.classList.remove("done");
@@ -184,6 +193,8 @@ const Login = (() => {
     if (progressEl) { progressEl.classList.remove("show"); progressEl.querySelector("span").style.width = "0%"; }
     /* the saved sign-in details stay put — the box asked us to keep them */
     paintRemembered();
+    /* the app shell listens for this so it can close the current view */
+    window.dispatchEvent(new CustomEvent("mpm:logout"));
     setTimeout(() => userEl.focus(), 300);
   };
 

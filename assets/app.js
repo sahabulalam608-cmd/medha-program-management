@@ -86,6 +86,15 @@ const App = (() => {
       setTimeout(() => { try { setView("overview", { replace: true, sub: "" }); } catch (e) {} }, 50);
       setTimeout(() => { try { setView("overview", { replace: true, sub: "" }); } catch (e) {} }, 300);
     });
+    /* after a sign-out the portal goes back to Overview and the address bar
+       keeps the plain site link — no leftover #members/p2 */
+    window.addEventListener("mpm:logout", () => {
+      try { setView("overview", { replace: true, sub: "" }); } catch (e) {}
+      try {
+        const clean = location.origin + location.pathname;
+        history.replaceState(null, "", clean);
+      } catch (e) {}
+    });
     const boot = parseHash();
     /* first paint after refresh: keep hash; fresh login forces overview via mpm:login */
     setView(boot.view || "overview", { replace: true, sub: boot.sub });
