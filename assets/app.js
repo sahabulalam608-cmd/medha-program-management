@@ -261,11 +261,19 @@ const App = (() => {
     });
   };
 
-  /* --- Medha Ai launcher: open app.medha.pro in a new tab or in this one --- */
-  const MEDHA_AI_URL = "http://app.medha.pro/";
+  /* --- the little dropdown launchers (Medha Ai, OTAHelpDesk) ---
+     Each one opens its own address — a new tab or this same tab. */
+  const MEDHA_LINKS = [
+    { btnId: "medhaAiBtn", menuId: "medhaAiMenu", url: "http://app.medha.pro/" },
+    { btnId: "otaHelpDeskBtn", menuId: "otaHelpDeskMenu", url: "https://admin.otahelpdesk.com/" },
+  ];
 
   const bindMedhaAi = () => {
-    const btn = document.getElementById("medhaAiBtn");
+    MEDHA_LINKS.forEach((cfg) => bindMedhaLink(cfg));
+  };
+
+  const bindMedhaLink = (cfg) => {
+    const btn = document.getElementById(cfg.btnId);
     if (!btn) return;
     const wrap = btn.closest(".medha-item") || btn.parentElement;
     let menu = null;
@@ -293,11 +301,11 @@ const App = (() => {
       if (menu) { close(); return; }
       menu = document.createElement("div");
       menu.className = "medha-menu";
-      menu.id = "medhaAiMenu";
+      menu.id = cfg.menuId;
       menu.setAttribute("role", "menu");
       menu.innerHTML = `
-        <a class="medha-menu-item" href="${MEDHA_AI_URL}" target="_blank" rel="noopener noreferrer" role="menuitem" data-medha="new">New Tab</a>
-        <a class="medha-menu-item" href="${MEDHA_AI_URL}" role="menuitem" data-medha="self">Open in this Tab</a>`;
+        <a class="medha-menu-item" href="${cfg.url}" target="_blank" rel="noopener noreferrer" role="menuitem" data-medha="new">New Tab</a>
+        <a class="medha-menu-item" href="${cfg.url}" role="menuitem" data-medha="self">Open in this Tab</a>`;
       document.body.appendChild(menu);
 
       /* sit right under the sidebar item */
