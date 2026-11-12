@@ -296,8 +296,8 @@ const App = (() => {
       menu.id = "medhaAiMenu";
       menu.setAttribute("role", "menu");
       menu.innerHTML = `
-        <button type="button" class="medha-menu-item" data-medha="new" role="menuitem">New Tab</button>
-        <button type="button" class="medha-menu-item" data-medha="self" role="menuitem">Open in this Tab</button>`;
+        <a class="medha-menu-item" href="${MEDHA_AI_URL}" target="_blank" rel="noopener noreferrer" role="menuitem" data-medha="new">New Tab</a>
+        <a class="medha-menu-item" href="${MEDHA_AI_URL}" role="menuitem" data-medha="self">Open in this Tab</a>`;
       document.body.appendChild(menu);
 
       /* sit right under the sidebar item */
@@ -311,12 +311,13 @@ const App = (() => {
       wrap && wrap.classList.add("open");
       btn.setAttribute("aria-expanded", "true");
 
+      /* both entries are real links — "New Tab" carries target="_blank", so the
+         browser itself opens it in a new tab of this same browser (no popup
+         blocker in the way); "Open in this Tab" is a plain link that replaces
+         the current page */
       menu.querySelectorAll("[data-medha]").forEach((b) => {
         b.addEventListener("click", () => {
-          const mode = b.dataset.medha;
           close();
-          if (mode === "new") window.open(MEDHA_AI_URL, "_blank", "noopener");
-          else window.location.href = MEDHA_AI_URL;
         });
       });
 
