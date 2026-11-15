@@ -435,6 +435,9 @@ body:not(.logged-in) .ws-signout { display: none; }
 /* --- Medha Ai launcher (dropdown under the sidebar item) --- */
 .medha-item { position: relative; }
 .nav-ico-logo img { width: 18px; height: 18px; border-radius: 5px; display: block; }
+/* a wide wordmark logo (BDFB) needs a wider slot in the same row */
+.nav-ico-logo.wide { width: 34px; }
+.nav-ico-logo.wide img { width: 34px; height: auto; border-radius: 0; }
 .medha-menu {
   position: fixed; z-index: 900; min-width: 186px; padding: 5px;
   background: rgba(255, 255, 255, .82);

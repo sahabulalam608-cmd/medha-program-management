@@ -34,12 +34,14 @@ Three items in the sidebar open something outside the portal:
 |---|---|
 | **Medha Ai** | Opens `http://app.medha.pro/` — the Medha Ai app |
 | **OTAHelpDesk** | Opens `https://admin.otahelpdesk.com/` — the OTA help desk |
+| **BDFB Support** | Opens `https://supportadmin.bdfunnelbuilder.com/` — the BDFB support desk |
 | **Medha Support** | The in-portal support desk (`https://app.medha.pro/ops/support`) |
 
-**Medha Ai** and **OTAHelpDesk** work the same way: click the item and a small
-menu opens under it with **New Tab** (a new tab in this same browser) and
-**Open in this Tab** (replaces the current page). Both entries are real links,
-so the browser opens them itself and no popup blocker can stop them.
+**Medha Ai**, **OTAHelpDesk** and **BDFB Support** work the same way: click the
+item and a small menu opens under it with **New Tab** (a new tab in this same
+browser) and **Open in this Tab** (replaces the current page). Both entries are
+real links, so the browser opens them itself and no popup blocker can stop
+them.
 
 **Medha Support** keeps its own page inside the portal — the launcher, the
 inline frame and the native ticket list.
