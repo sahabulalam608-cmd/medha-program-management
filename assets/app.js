@@ -266,6 +266,7 @@ const App = (() => {
   const MEDHA_LINKS = [
     { btnId: "medhaAiBtn", menuId: "medhaAiMenu", url: "http://app.medha.pro/" },
     { btnId: "otaHelpDeskBtn", menuId: "otaHelpDeskMenu", url: "https://admin.otahelpdesk.com/" },
+    { btnId: "bdfbSupportBtn", menuId: "bdfbSupportMenu", url: "https://supportadmin.bdfunnelbuilder.com/" },
   ];
 
   const bindMedhaAi = () => {
