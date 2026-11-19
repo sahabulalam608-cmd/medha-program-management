@@ -291,10 +291,12 @@ const Api = (() => {
    *               never picks up "Payment Status")
    *   loose     — last-resort substring match
    */
-  const pickCol = (cols, priority, loose, exactOnly) => {
+  const pickCol = (cols, priority, loose, exactOnly, allowTran) => {
     const safe = (c) => {
+      /* Tran_id must never win the member-id column — but the transaction-id
+         column itself has to be allowed, otherwise it can never be read */
+      if (allowTran) return true;
       const n = normLabel(c);
-      /* Tran_id must never win the member-id column */
       if (n.indexOf("tran") !== -1 || n.indexOf("trx") !== -1) return false;
       return true;
     };
@@ -328,7 +330,7 @@ const Api = (() => {
     facebook: { priority: ["facebook", "facebookprofile", "fb", "fblink", "fbprofile"] },
     medhaEmail: { priority: ["medhaemail", "medha_email", "medhaaccessmail", "medhaloginemail", "medhaloginaccessemail", "medhamail"] },
     courseMail: { priority: ["coursemail", "course mail", "coursemailaddress"] },
-    tranId: { priority: ["tranid", "transid", "transactionid", "trxid", "trid", "paymentid"] },
+    tranId: { priority: ["tranid", "transid", "transactionid", "trxid", "trid", "paymentid"], allowTran: true },
     plan:  { priority: ["plan", "package"] },
     team:  { priority: ["team", "teamcategory", "category", "group"] },
     payStatus: { priority: ["paymentstatus", "paymentstate"] },
@@ -346,7 +348,7 @@ const Api = (() => {
     if (!data || !data.table || !data.table.rows) return null;
     const cols = (data.table.cols || []).map(c => c.label || "");
     const idx = {};
-    for (const k of Object.keys(COL)) idx[k] = pickCol(cols, COL[k].priority, COL[k].loose, COL[k].exactOnly);
+    for (const k of Object.keys(COL)) idx[k] = pickCol(cols, COL[k].priority, COL[k].loose, COL[k].exactOnly, COL[k].allowTran);
 
     /* a member list must have a name — and either an id or an email.
        Some master sheets have no "Member ID" column at all; the id is then
