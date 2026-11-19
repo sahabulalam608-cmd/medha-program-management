@@ -79,12 +79,17 @@ const App = (() => {
     // refresh the signed-in user when the user signs in / out
     window.addEventListener("mpm:login", () => {
       setTimeout(renderSignedInUser, 60);
-      /* after every login always land on Dashboard / Overview */
+      /* after every login always land on Dashboard / Overview — but only when
+         the user has not already picked another page in the meantime */
+      const viewAtLogin = state.view;
       try { history.replaceState({ view: "overview", sub: "" }, "", "#overview"); } catch (e) {
         try { location.hash = "#overview"; } catch (e2) {}
       }
-      setTimeout(() => { try { setView("overview", { replace: true, sub: "" }); } catch (e) {} }, 50);
-      setTimeout(() => { try { setView("overview", { replace: true, sub: "" }); } catch (e) {} }, 300);
+      const landOnOverview = () => {
+        try { if (state.view === viewAtLogin) setView("overview", { replace: true, sub: "" }); } catch (e) {}
+      };
+      setTimeout(landOnOverview, 50);
+      setTimeout(landOnOverview, 300);
     });
     /* after a sign-out the portal goes back to Overview and the address bar
        keeps the plain site link — no leftover #members/p2 */
@@ -161,8 +166,8 @@ const App = (() => {
     } catch (e) {}
     const isOta = String(username).toLowerCase() === "ota";
     return isOta
-      ? { file: "ota-logo-600.png", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
-      : { file: "medha-logo-256.png", mark: "medha-logo-256.png", wide: false, label: "Medha" };
+      ? { file: "ota-logo-600.webp", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
+      : { file: "medha-logo-256.webp", mark: "medha-logo-256.webp", wide: false, label: "Medha" };
   };
 
   /* Where the member list comes from. This lives in the "…" menu, not on
@@ -263,6 +268,28 @@ const App = (() => {
 
   /* --- the little dropdown launchers (Medha Ai, OTAHelpDesk) ---
      Each one opens its own address — a new tab or this same tab. */
+  /* --- Medha Ai launcher: open app.medha.pro in a new tab or in this one --- */
+  /* The Appreciation page carries its artwork in two big data-image files.
+     Loading them on every visit made the portal slow, so they come only
+     when the page is opened — and only once. */
+  let apprPromise = null;
+  const ensureAppreciation = () => {
+    if (apprPromise) return apprPromise;
+    apprPromise = new Promise((resolve) => {
+      const load = (src, then) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.onload = then;
+        s.onerror = then; /* a missing file must never block the portal */
+        document.head.appendChild(s);
+      };
+      load("assets/appreciation-img.js", () =>
+        load("assets/appreciation-bg.js", () =>
+          load("assets/appreciation.js", resolve)));
+    });
+    return apprPromise;
+  };
+
   const MEDHA_LINKS = [
     { btnId: "medhaAiBtn", menuId: "medhaAiMenu", url: "http://app.medha.pro/" },
     { btnId: "otaHelpDeskBtn", menuId: "otaHelpDeskMenu", url: "https://admin.otahelpdesk.com/" },
@@ -1127,7 +1154,15 @@ const App = (() => {
       case "agreements": renderAgreements(data, head); return;
       case "classes": setTimeout(() => bindSheetKeys(els.content), 0); renderClasses(data, head); return;
       case "tasks": renderComingSoon("Tasks & workshops", head); break;
-      case "appreciation": Appreciation.render(data, head, els.content); return;
+      case "appreciation":
+        /* the certificate artwork is heavy (two data-image files, ~160 KB) —
+           it is fetched the first time this page is opened, never on every
+           visit of the portal */
+        ensureAppreciation().then(() => {
+          if (state.view !== "appreciation") return;
+          if (typeof Appreciation !== "undefined") Appreciation.render(data, head, els.content);
+        });
+        return;
       case "scores": setTimeout(() => bindSheetKeys(els.content), 0); renderScores(data, head); return;
       case "evidence": renderComingSoon("Evidence & reports", head); break;
       case "mail": renderMail(data, head); break;
