@@ -31,8 +31,8 @@ if (fs.existsSync(backendDir)) {
   console.log('✓ Copied backend/ into dist/backend/');
 }
 
-// 5. Copy standalone root files: _headers, _redirects, guide.html, sw.js
-const standaloneFiles = ['_headers', '_redirects', 'guide.html', 'sw.js'];
+// 5. Copy standalone root files: _headers, _redirects, guide.html, feedback.html, sw.js
+const standaloneFiles = ['_headers', '_redirects', 'guide.html', 'feedback.html', 'sw.js'];
 for (const f of standaloneFiles) {
   const src = path.join(rootDir, f);
   const dest = path.join(distDir, f);

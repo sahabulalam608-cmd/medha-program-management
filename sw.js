@@ -8,11 +8,12 @@
  *    CACHE FIRST, refreshed quietly in the background.
  *  - Google Sheets: always the network, because the data must be live.
  */
-const CACHE = "mpm-v71";
+const CACHE = "mpm-v72";
 const SHELL = [
   "./",
   "./index.html",
   "./guide.html",
+  "./feedback.html",
   "./assets/styles.css",
   "./assets/mail.css",
   "./assets/login.css",

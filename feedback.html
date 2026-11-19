@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5b21b6">
+<title>NCM Feedback — Medha Program Management</title>
+<meta name="description" content="NCM Part 01 & 02 — Phase-wise task feedback with practical evidence.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b21b6'/%3E%3Ctext x='16' y='22' font-family='sans-serif' font-size='15' font-weight='700' fill='%23fff' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+<style>
+/* ---------- tokens (from the MPM portal) ---------- */
+:root{
+  --primary:#5b21b6; --primary-2:#7c3aed; --primary-soft:#ede9fe; --primary-bg:#f5f3ff;
+  --text:#1e1b4b; --muted:#64748b; --dim:#94a3b8;
+  --border:#ece9f4; --border-2:#e5e7eb; --bg-soft:#fafafa; --bg-2:#f7f6fb;
+  --success:#10b981; --success-soft:#d1fae5; --danger:#dc2626; --warning:#f59e0b;
+  --radius:10px; --radius-lg:14px; --radius-xl:18px;
+  --shadow:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --shadow-lg:0 8px 24px rgba(91,33,182,.08),0 2px 4px rgba(15,23,42,.04);
+  --shadow-pop:0 24px 60px rgba(30,27,75,.22),0 4px 12px rgba(15,23,42,.10);
+  --spring:cubic-bezier(.32,.72,0,1);
+  --font:"Inter","Noto Sans Bengali",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  margin:0;font-family:var(--font);color:var(--text);background:var(--bg-2);
+  -webkit-font-smoothing:antialiased;letter-spacing:-.011em;
+  background-image:radial-gradient(1100px 520px at 50% -220px,#f1ecff 0%,rgba(255,255,255,0) 70%);
+}
+.wrap{max-width:760px;margin:0 auto;padding:0 18px 120px}
+
+/* ---------- brand bar ---------- */
+.brand{
+  position:sticky;top:0;z-index:40;
+  backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);
+  background:rgba(255,255,255,.72);border-bottom:1px solid var(--border);
+}
+.brand-in{max-width:760px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:12px}
+.mark{
+  width:34px;height:34px;border-radius:10px;flex:0 0 auto;
+  background:linear-gradient(140deg,var(--primary),var(--primary-2));
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;
+  box-shadow:0 6px 16px rgba(91,33,182,.28);
+}
+.brand h1{font-size:14px;margin:0;font-weight:800;letter-spacing:-.02em}
+.brand p{margin:1px 0 0;font-size:11px;color:var(--dim);font-weight:600}
+
+/* ---------- progress ---------- */
+.prog{position:sticky;top:55px;z-index:30;background:rgba(247,246,251,.86);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.prog-in{max-width:760px;margin:0 auto;padding:9px 18px 10px;display:flex;align-items:center;gap:12px}
+.bar{flex:1;height:5px;border-radius:99px;background:var(--primary-soft);overflow:hidden}
+.bar span{display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--primary),var(--primary-2));
+  transition:width .5s var(--spring)}
+.prog b{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* ---------- hero ---------- */
+.hero{padding:30px 0 8px}
+.hero .kicker{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--primary-2)}
+.hero h2{font-size:29px;margin:10px 0 8px;letter-spacing:-.035em;line-height:1.1;font-weight:800}
+.hero p{margin:0;color:var(--muted);font-size:14.5px;line-height:1.55;max-width:56ch}
+.hero .line{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px}
+.hero .line span{font-size:11.5px;font-weight:700;color:var(--primary);background:var(--primary-bg);
+  border:1px solid var(--primary-soft);padding:5px 10px;border-radius:99px}
+
+/* ---------- card ---------- */
+.card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-xl);
+  box-shadow:var(--shadow);padding:22px;margin-top:14px;position:relative;
+  opacity:0;transform:translateY(14px);
+  transition:opacity .55s var(--spring),transform .55s var(--spring),box-shadow .3s ease;
+}
+.card.in{opacity:1;transform:none}
+.card:focus-within{box-shadow:var(--shadow-lg)}
+.chead{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+.num{
+  width:26px;height:26px;border-radius:8px;flex:0 0 auto;display:grid;place-items:center;
+  background:var(--primary-bg);color:var(--primary);font-size:12px;font-weight:800;
+  border:1px solid var(--primary-soft);
+}
+.chead h3{margin:0;font-size:15.5px;font-weight:800;letter-spacing:-.02em}
+.chint{margin:2px 0 16px 37px;font-size:12.5px;color:var(--dim);font-weight:600}
+
+/* ---------- fields ---------- */
+.grid{display:grid;gap:13px}
+.g2{grid-template-columns:1fr 1fr}
+@media(max-width:620px){.g2{grid-template-columns:1fr}}
+label{display:block;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.req{color:var(--primary-2)}
+input,textarea,select{
+  width:100%;font-family:inherit;font-size:14px;color:var(--text);
+  background:var(--bg-soft);border:1px solid var(--border-2);border-radius:12px;
+  padding:11px 13px;transition:border-color .2s,box-shadow .2s,background .2s;
+  -webkit-appearance:none;appearance:none;
+}
+textarea{min-height:86px;resize:vertical;line-height:1.55}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+input:focus,textarea:focus,select:focus{
+  outline:none;background:#fff;border-color:var(--primary-2);
+  box-shadow:0 0 0 4px rgba(124,58,237,.12);
+}
+input::placeholder,textarea::placeholder{color:#b6bfce}
+input.err,textarea.err,select.err{border-color:var(--danger);box-shadow:0 0 0 4px rgba(220,38,38,.10)}
+.msg{font-size:11.5px;color:var(--danger);font-weight:700;margin-top:5px;display:none}
+.msg.on{display:block}
+.hint{font-size:11.5px;color:var(--dim);margin-top:5px;font-weight:600}
+
+/* ---------- chips ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.chip{
+  font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);
+  background:var(--bg-soft);border:1px solid var(--border-2);border-radius:99px;
+  padding:6px 12px;cursor:pointer;transition:all .22s var(--spring);
+}
+.chip:active{transform:scale(.94)}
+.chip.on{background:var(--primary-soft);border-color:#ddd6fe;color:var(--primary)}
+
+/* ---------- iOS segmented rating ---------- */
+.seg{position:relative;display:flex;background:var(--bg-2);border:1px solid var(--border-2);
+  border-radius:12px;padding:3px;gap:0}
+.seg .thumb{position:absolute;top:3px;bottom:3px;border-radius:9px;background:#fff;
+  box-shadow:0 2px 8px rgba(30,27,75,.14);border:1px solid var(--border);
+  transition:transform .38s var(--spring),width .38s var(--spring);pointer-events:none}
+.seg button{
+  position:relative;z-index:1;flex:1;border:0;background:none;font-family:inherit;
+  font-size:12.5px;font-weight:700;color:var(--dim);padding:8px 4px;cursor:pointer;
+  transition:color .28s var(--spring);
+}
+.seg button.on{color:var(--primary)}
+.seg-labels{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);
+  font-weight:700;margin-top:5px;padding:0 2px}
+
+/* ---------- actions ---------- */
+.actions{position:fixed;left:0;right:0;bottom:0;z-index:35;padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(0deg,rgba(247,246,251,.98) 62%,rgba(247,246,251,0));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.actions-in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.btn{
+  font-family:inherit;border:0;border-radius:13px;font-size:14px;font-weight:800;
+  padding:14px 20px;cursor:pointer;transition:transform .18s var(--spring),background .2s,box-shadow .2s;
+}
+.btn:active{transform:scale(.97)}
+.btn-primary{flex:1;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  box-shadow:0 8px 20px rgba(91,33,182,.30)}
+.btn-primary:hover{box-shadow:0 10px 26px rgba(91,33,182,.36)}
+.btn-ghost{background:#fff;border:1px solid var(--border-2);color:var(--muted)}
+.btn:disabled{opacity:.6;pointer-events:none}
+.mini{font-size:11.5px;color:var(--dim);font-weight:700;flex:0 0 auto}
+
+/* ---------- iOS popup ---------- */
+.pop{
+  position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:22px;
+  background:rgba(30,27,75,.34);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  opacity:0;pointer-events:none;transition:opacity .3s var(--spring);
+}
+.pop.on{opacity:1;pointer-events:auto}
+.pop-box{
+  width:100%;max-width:330px;background:rgba(255,255,255,.94);border-radius:20px;overflow:hidden;
+  box-shadow:var(--shadow-pop);text-align:center;padding:26px 22px 20px;
+  transform:scale(.88);opacity:0;transition:transform .46s var(--spring),opacity .3s ease;
+}
+.pop.on .pop-box{transform:scale(1);opacity:1}
+.tick{width:58px;height:58px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;
+  background:var(--success-soft);color:var(--success);
+  animation:pop .55s var(--spring) .1s both}
+@keyframes pop{0%{transform:scale(.4)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+.tick svg{width:30px;height:30px;stroke-dasharray:40;stroke-dashoffset:40;animation:draw .5s ease .38s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.pop h4{margin:0 0 6px;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.pop p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+.pop .ok{
+  margin-top:16px;width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;
+  border:0;border-radius:12px;font-family:inherit;font-size:14px;font-weight:800;padding:12px;cursor:pointer;
+  transition:transform .18s var(--spring);
+}
+.pop .ok:active{transform:scale(.97)}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .card{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="brand-in">
+    <div class="mark">M</div>
+    <div>
+      <h1>Medha Program Management</h1>
+      <p>NCM Part 01 &amp; 02 — Phase Feedback</p>
+    </div>
+  </div>
+</div>
+
+<div class="prog">
+  <div class="prog-in">
+    <div class="bar"><span id="fill"></span></div>
+    <b id="pcount">0% complete</b>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kicker">Permanent Learning Record</div>
+    <h2>Phase Feedback &amp; Submission</h2>
+    <p>Fill in what you did in the phase, attach the evidence and tell us what you learned.
+       Your record is stored with your Member ID for future verification.</p>
+    <div class="line">
+      <span>4 Phases</span><span>7-Day Timeline</span><span>Evidence Based</span><span>Reviewed by the Operation Team</span>
+    </div>
+  </div>
+
+  <form id="form" novalidate autocomplete="on">
+
+    <!-- 1 -->
+    <section class="card">
+      <div class="chead"><div class="num">1</div><h3>Member Information</h3></div>
+      <div class="chint">Who is submitting — used to file your record.</div>
+      <div class="grid g2">
+        <div><label for="f_name">Full name <span class="req">*</span></label>
+          <input id="f_name" name="name" type="text" placeholder="e.g. Sohel Razzak" required>
+          <div class="msg" data-for="f_name">Please enter your name</div></div>
+        <div><label for="f_mid">Member ID <span class="req">*</span></label>
+          <input id="f_mid" name="memberId" type="text" placeholder="e.g. NCM-P2-01" required>
+          <div class="msg" data-for="f_mid">Member ID is required</div></div>
+        <div><label for="f_prog">Program <span class="req">*</span></label>
+          <select id="f_prog" name="program" required>
+            <option value="">Select program</option>
+            <option>NCM Part 01</option>
+            <option>NCM Part 02</option>
+          </select>
+          <div class="msg" data-for="f_prog">Please select the program</div></div>
+        <div><label for="f_phone">Phone / WhatsApp <span class="req">*</span></label>
+          <input id="f_phone" name="phone" type="tel" inputmode="tel" placeholder="01XXXXXXXXX" required>
+          <div class="msg" data-for="f_phone">Contact number is required</div></div>
+      </div>
+      <div style="margin-top:13px"><label for="f_email">Email</label>
+        <input id="f_email" name="email" type="email" inputmode="email" placeholder="your@email.com">
+        <div class="hint">Optional — used for the acknowledgement copy.</div></div>
+    </section>
+
+    <!-- 2 -->
+    <section class="card">
+      <div class="chead"><div class="num">2</div><h3>Phase &amp; Task</h3></div>
+      <div class="chint">Which phase is this submission for.</div>
+      <div class="grid g2">
+        <div><label for="f_phase">Phase <span class="req">*</span></label>
+          <select id="f_phase" name="phase" required>
+            <option value="">Select phase</option>
+            <option value="Phase 01">Phase 01 — Brand &amp; Market Research</option>
+            <option value="Phase 02">Phase 02 — Content Strategy &amp; Creation</option>
+            <option value="Phase 03">Phase 03 — Business &amp; Advertising Data Analysis</option>
+            <option value="Phase 04">Phase 04 — AI Automation &amp; Integration</option>
+          </select>
+          <div class="msg" data-for="f_phase">Please select the phase</div></div>
+        <div><label for="f_day">Timeline day</label>
+          <input id="f_day" type="text" readonly value="Select a phase">
+          <div class="hint">Auto-filled from the submission timeline.</div></div>
+      </div>
+      <div style="margin-top:13px"><label for="f_task">Task of this phase <span class="req">*</span></label>
+        <textarea id="f_task" name="task" placeholder="Which task did you work on for this phase?" required></textarea>
+        <div class="msg" data-for="f_task">Please describe the task</div></div>
+    </section>
+
+    <!-- 3 -->
+    <section class="card">
+      <div class="chead"><div class="num">3</div><h3>Task Results</h3></div>
+      <div class="chint">What the work produced — the outcome, briefly.</div>
+      <div><label for="f_result">Result summary <span class="req">*</span></label>
+        <textarea id="f_result" name="result" placeholder="Final report, brand profile, analysis, workflow — what did you finally produce?" required></textarea>
+        <div class="msg" data-for="f_result">Please write the result summary</div></div>
+    </section>
+
+    <!-- 4 -->
+    <section class="card">
+      <div class="chead"><div class="num">4</div><h3>Tools Used</h3></div>
+      <div class="chint">Which AI tools and platforms you used.</div>
+      <div><label for="f_tools">AI tools &amp; platforms <span class="req">*</span></label>
+        <input id="f_tools" name="tools" type="text" placeholder="e.g. ChatGPT, Gemini, Sheets, Gmail" required>
+        <div class="msg" data-for="f_tools">Please list the tools you used</div>
+        <div class="chips" id="toolChips"></div></div>
+    </section>
+
+    <!-- 5 -->
+    <section class="card">
+      <div class="chead"><div class="num">5</div><h3>Practical Evidence</h3></div>
+      <div class="chint">Screenshots, documents, links or videos — one link per line.</div>
+      <div><label for="f_evidence">Evidence links <span class="req">*</span></label>
+        <textarea id="f_evidence" name="evidence" placeholder="https://drive.google.com/…&#10;https://youtube.com/…&#10;Screenshot file name" required></textarea>
+        <div class="msg" data-for="f_evidence">Please add at least one evidence link</div>
+        <div class="hint">Put the shared files in your Drive folder and paste the link here.</div></div>
+    </section>
+
+    <!-- 6 -->
+    <section class="card">
+      <div class="chead"><div class="num">6</div><h3>Acknowledgement Feedback</h3></div>
+      <div class="chint">Your own learning record — this part is permanent.</div>
+
+      <div><label for="f_learned">What did you learn? <span class="req">*</span></label>
+        <textarea id="f_learned" name="learned" placeholder="The concepts, methods and skills you picked up in this phase" required></textarea>
+        <div class="msg" data-for="f_learned">Please write what you learned</div></div>
+
+      <div style="margin-top:16px">
+        <label>How much did you understand? <span class="req">*</span></label>
+        <div class="seg" data-seg="understand" data-value="">
+          <div class="thumb"></div>
+          <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button>
+          <button type="button" data-v="3">3</button><button type="button" data-v="4">4</button>
+          <button type="button" data-v="5">5</button>
+        </div>
+        <div class="seg-labels"><span>Not yet</span><span>Fully clear</span></div>
+        <div class="msg" data-for="understand">Please pick a rating</div>
+      </div>
+
+      <div style="margin-top:16px">
+        <label>How much could you apply it yourself? <span class="req">*</span></label>
+        <div class="seg" data-seg="apply" data-value="">
+          <div class="thumb"></div>
+          <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button>
+          <button type="button" data-v="3">3</button><button type="button" data-v="4">4</button>
+          <button type="button" data-v="5">5</button>
+        </div>
+        <div class="seg-labels"><span>Only theory</span><span>Fully applied</span></div>
+        <div class="msg" data-for="apply">Please pick a rating</div>
+      </div>
+
+      <div style="margin-top:16px">
+        <label>How satisfied are you with the result? <span class="req">*</span></label>
+        <div class="seg" data-seg="satisfaction" data-value="">
+          <div class="thumb"></div>
+          <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button>
+          <button type="button" data-v="3">3</button><button type="button" data-v="4">4</button>
+          <button type="button" data-v="5">5</button>
+        </div>
+        <div class="seg-labels"><span>Needs work</span><span>Excellent</span></div>
+        <div class="msg" data-for="satisfaction">Please pick a rating</div>
+      </div>
+
+      <div style="margin-top:16px"><label for="f_challenges">Challenges you faced</label>
+        <textarea id="f_challenges" name="challenges" placeholder="What blocked you — tool limits, data, time, understanding…"></textarea></div>
+
+      <div style="margin-top:13px"><label for="f_improve">Areas for improvement</label>
+        <textarea id="f_improve" name="improve" placeholder="What should change for the next phase or batch?"></textarea></div>
+    </section>
+
+    <div style="height:18px"></div>
+  </form>
+</div>
+
+<div class="actions">
+  <div class="actions-in">
+    <button class="btn btn-primary" id="send" type="button">Submit Feedback</button>
+    <button class="btn btn-ghost" id="clear" type="button">Clear</button>
+    <span class="mini" id="hint">Draft saved on this device</span>
+  </div>
+</div>
+
+<div class="pop" id="pop" role="dialog" aria-modal="true" aria-live="polite">
+  <div class="pop-box">
+    <div class="tick" id="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <h4 id="popTitle">Feedback sent</h4>
+    <p id="popText">Your feedback was emailed to the Operation Team and filed with your Member ID.</p>
+    <button class="ok" id="popOk">Done</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===== config ===== */
+var CFG = {
+  backendUrl: "https://script.google.com/macros/s/AKfycbzi5PcsOkMRTmtZRFmy6-L6KkHWTfoQPQoeZ7rAx2pWrFyraayQq55UBjqCIRrG65yumQ/exec",
+  to: "otanextchaptermastermind@gmail.com",
+  cc: "",
+  footerUrl: "https://medha-program-management.pages.dev/assets/img/mail-footer.png",
+  saveAction: "saveFeedback",        /* sheet save — works after the next Apps Script deploy */
+  timeoutMs: 12000
+};
+
+var PHASES = {
+  "Phase 01": {
+    day: "Day 01–02",
+    tasks: "Product selection · Brand profile · Project / Agent / Skills setup · AI tools for market research · Final research report",
+    hint: "e.g. Brand profile, research report and recommendations for the selected product"
+  },
+  "Phase 02": {
+    day: "Day 03–04",
+    tasks: "Content strategy & calendar · Image, video and voice generation · Quality, relevance and brand consistency check",
+    hint: "e.g. 30-day content calendar with generated image, video and voice assets"
+  },
+  "Phase 03": {
+    day: "Day 05",
+    tasks: "Business / advertising dataset · AI analysis · Performance, problems and opportunities · Recommendations",
+    hint: "e.g. Ads dataset analysis with performance insights and improvement recommendations"
+  },
+  "Phase 04": {
+    day: "Day 06",
+    tasks: "Automation workflow · Life OS / Jobs / workflow components · Gmail, Telegram, Google Drive integration · Live testing",
+    hint: "e.g. Gmail + Telegram notification workflow tested end to end"
+  }
+};
+
+var TOOLS = ["ChatGPT","Claude","Gemini","Midjourney","Runway","ElevenLabs","Google Sheets","Gmail","Telegram","Google Drive","n8n","Zapier","Looka Studio","Canva"];
+var DRAFT_KEY = "mpm.ncm.feedback.draft";
+
+var form = document.getElementById("form");
+var $ = function(id){ return document.getElementById(id); };
+
+/* ===== entrance animation ===== */
+var cards = [].slice.call(document.querySelectorAll(".card"));
+cards.forEach(function(c,i){ setTimeout(function(){ c.classList.add("in"); }, 60 + i*55); });
+
+/* ===== tool chips ===== */
+var chipsBox = $("toolChips");
+TOOLS.forEach(function(t){
+  var b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = t;
+  b.addEventListener("click", function(){
+    b.classList.toggle("on");
+    var cur = $("f_tools").value.split(",").map(function(s){return s.trim();}).filter(Boolean);
+    var name = t.toLowerCase(), hit = cur.findIndex(function(s){return s.toLowerCase()===name;});
+    if (hit > -1) cur.splice(hit,1); else cur.push(t);
+    $("f_tools").value = cur.join(", ");
+    updateProgress();
+  });
+  chipsBox.appendChild(b);
+});
+
+/* ===== iOS segmented rating ===== */
+function moveThumb(seg){
+  var thumb = seg.querySelector(".thumb"), on = seg.querySelector("button.on");
+  if (!thumb) return;
+  if (!on){ thumb.style.width = "0px"; thumb.style.transform = "translateX(0)"; return; }
+  thumb.style.width = on.offsetWidth + "px";
+  thumb.style.transform = "translateX(" + (on.offsetLeft - 3) + "px)";
+}
+[].slice.call(document.querySelectorAll(".seg")).forEach(function(seg){
+  var btns = [].slice.call(seg.querySelectorAll("button"));
+  btns.forEach(function(b){
+    b.addEventListener("click", function(){
+      btns.forEach(function(x){ x.classList.remove("on"); });
+      b.classList.add("on");
+      seg.dataset.value = b.dataset.v;
+      moveThumb(seg);
+      clearError(seg.dataset.seg);
+      updateProgress();
+    });
+  });
+  window.addEventListener("resize", function(){ moveThumb(seg); });
+});
+
+/* ===== phase → timeline day ===== */
+$("f_phase").addEventListener("change", function(){
+  var p = PHASES[this.value];
+  $("f_day").value = p ? p.day : "Select a phase";
+  var ta = $("f_task");
+  if (p){
+    ta.placeholder = p.hint;
+    if (!ta.value.trim()) ta.value = p.tasks;
+  } else { ta.placeholder = "Which task did you work on for this phase?"; }
+  clearError("f_phase");
+  updateProgress();
+});
+
+/* ===== validation ===== */
+function setError(key){
+  var el = document.querySelector('[data-for="'+key+'"]');
+  if (el){ el.classList.add("on"); el.style.animation = "shake .38s var(--spring)"; setTimeout(function(){ el.style.animation=""; }, 420); }
+}
+function clearError(key){
+  var el = document.querySelector('[data-for="'+key+'"]');
+  if (el) el.classList.remove("on");
+}
+function validate(){
+  var ok = true, first = null;
+  var required = ["f_name","f_mid","f_prog","f_phone","f_phase","f_task","f_result","f_tools","f_evidence","f_learned"];
+  required.forEach(function(id){
+    var el = $(id), v = (el.value||"").trim();
+    var bad = !v;
+    if (id === "f_email" && v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) bad = true;
+    if (id === "f_mid" && v && !/[A-Za-z0-9-]{3,}/.test(v)) bad = true;
+    if (bad){
+      el.classList.add("err"); setError(id); ok = false;
+      if (!first) first = el;
+    } else { el.classList.remove("err"); clearError(id); }
+  });
+  ["understand","apply","satisfaction"].forEach(function(k){
+    var seg = document.querySelector('.seg[data-seg="'+k+'"]');
+    if (!seg.dataset.value){ setError(k); ok = false; if(!first) first = seg; }
+    else clearError(k);
+  });
+  if (first){ first.scrollIntoView({behavior:"smooth", block:"center"}); setTimeout(function(){ first.focus({preventScroll:true}); }, 320); }
+  return ok;
+}
+[].slice.call(form.querySelectorAll("input,textarea,select")).forEach(function(el){
+  el.addEventListener("input", function(){ el.classList.remove("err"); clearError(el.id); updateProgress(); });
+});
+
+/* ===== progress ===== */
+function updateProgress(){
+  var fields = [].slice.call(form.querySelectorAll("input,textarea,select"));
+  var done = 0;
+  fields.forEach(function(el){
+    if ((el.value||"").trim()) done++;
+  });
+  var segs = [].slice.call(document.querySelectorAll(".seg"));
+  segs.forEach(function(s){ if (s.dataset.value) done++; });
+  var pct = Math.round(done / (fields.length + segs.length) * 100);
+  $("fill").style.width = pct + "%";
+  $("pcount").textContent = pct + "% complete";
+}
+
+/* ===== draft ===== */
+var draftTimer = null;
+function saveDraft(){
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(function(){
+    try{
+      var d = {};
+      [].slice.call(form.querySelectorAll("[name]")).forEach(function(el){ d[el.name] = el.value; });
+      [].slice.call(document.querySelectorAll(".seg")).forEach(function(s){ d[s.dataset.seg] = s.dataset.value; });
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    }catch(e){}
+  }, 400);
+}
+function loadDraft(){
+  try{
+    var raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    var d = JSON.parse(raw);
+    Object.keys(d||{}).forEach(function(k){
+      var el = form.querySelector('[name="'+k+'"]');
+      if (el) el.value = d[k];
+      var seg = document.querySelector('.seg[data-seg="'+k+'"]');
+      if (seg){
+        seg.dataset.value = d[k];
+        var b = seg.querySelector('button[data-v="'+d[k]+'"]');
+        if (b){ [].slice.call(seg.querySelectorAll("button")).forEach(function(x){x.classList.remove("on");}); b.classList.add("on"); }
+      }
+    });
+  }catch(e){}
+}
+function clearDraft(){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} }
+
+/* ===== prefill from URL (?memberId=…&name=…&program=…) ===== */
+function prefill(){
+  var q = new URLSearchParams(location.search);
+  if (q.get("name")) $("f_name").value = q.get("name");
+  if (q.get("memberId")) $("f_mid").value = q.get("memberId");
+  if (q.get("program")) $("f_prog").value = q.get("program");
+  if (q.get("email")) $("f_email").value = q.get("email");
+  if (q.get("phone")) $("f_phone").value = q.get("phone");
+  if (q.get("phase")) { $("f_phase").value = q.get("phase"); $("f_phase").dispatchEvent(new Event("change")); }
+}
+
+/* ===== build the email body ===== */
+function val(id){ return ($(id).value||"").trim(); }
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+function nl2br(s){ return esc(s).replace(/\n/g,"<br>"); }
+function row(label, value){
+  return '<tr><td style="padding:8px 14px 8px 0;vertical-align:top;width:190px;font:600 12px/1.5 Arial,sans-serif;color:#64748b;letter-spacing:.04em;text-transform:uppercase">'+esc(label)+
+         '</td><td style="padding:8px 0;vertical-align:top;font:400 13.5px/1.6 Arial,sans-serif;color:#1e1b4b">'+value+'</td></tr>';
+}
+function buildBody(d){
+  var html = '<div style="font:400 14px/1.6 Arial,Helvetica,sans-serif;color:#1e1b4b">';
+  html += '<p style="margin:0 0 14px;font-size:15px;font-weight:700">NCM Phase Feedback — '+esc(d.memberId)+'</p>';
+  html += '<table style="border-collapse:collapse;width:100%">';
+  html += row("Member", esc(d.name)+' <span style="color:#94a3b8">('+esc(d.memberId)+')</span>');
+  html += row("Program", esc(d.program));
+  html += row("Contact", esc(d.phone)+(d.email? ' &middot; '+esc(d.email):''));
+  html += row("Phase", esc(d.phase)+' <span style="color:#94a3b8">&middot; '+esc(d.day)+'</span>');
+  html += row("Task", nl2br(d.task));
+  html += row("Result", nl2br(d.result));
+  html += row("Tools used", nl2br(d.tools));
+  html += row("Evidence", nl2br(d.evidence));
+  html += row("What I learned", nl2br(d.learned));
+  html += row("Understand", d.understand+" / 5");
+  html += row("Applied myself", d.apply+" / 5");
+  html += row("Satisfaction", d.satisfaction+" / 5");
+  html += row("Challenges", d.challenges ? nl2br(d.challenges) : '<span style="color:#94a3b8">—</span>');
+  html += row("Improvement", d.improve ? nl2br(d.improve) : '<span style="color:#94a3b8">—</span>');
+  html += '</table>';
+  html += '<p style="margin:16px 0 0;font-size:12px;color:#94a3b8">Sent from the Medha Program Management portal &middot; NCM Part 01 &amp; 02</p>';
+  html += '</div>';
+  return html;
+}
+function collect(){
+  var seg = function(k){ var s = document.querySelector('.seg[data-seg="'+k+'"]'); return s ? s.dataset.value : ""; };
+  var phase = val("f_phase"), p = PHASES[phase] || {day:""};
+  return {
+    name: val("f_name"), memberId: val("f_mid"), program: val("f_prog"),
+    phone: val("f_phone"), email: val("f_email"), phase: phase, day: p.day,
+    task: val("f_task"), result: val("f_result"), tools: val("f_tools"),
+    evidence: val("f_evidence"), learned: val("f_learned"),
+    understand: seg("understand"), apply: seg("apply"), satisfaction: seg("satisfaction"),
+    challenges: val("f_challenges"), improve: val("f_improve")
+  };
+}
+
+/* ===== popup ===== */
+function showPop(title, text, icon){
+  $("popTitle").textContent = title;
+  $("popText").textContent = text;
+  var tick = $("tick");
+  if (icon === "warn"){
+    tick.style.background = "#fef3c7"; tick.style.color = "#f59e0b";
+    tick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>';
+  } else {
+    tick.style.background = "var(--success-soft)"; tick.style.color = "var(--success)";
+    tick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+  }
+  $("pop").classList.add("on");
+}
+function hidePop(){ $("pop").classList.remove("on"); }
+$("popOk").addEventListener("click", hidePop);
+$("pop").addEventListener("click", function(e){ if (e.target === $("pop")) hidePop(); });
+document.addEventListener("keydown", function(e){ if (e.key === "Escape") hidePop(); });
+
+/* ===== mailto fallback ===== */
+function mailtoFallback(d, bodyText){
+  var url = "mailto:" + CFG.to + "?subject=" + encodeURIComponent("NCM Phase Feedback — " + d.memberId + " — " + d.phase) +
+            "&body=" + encodeURIComponent(bodyText);
+  window.location.href = url;
+}
+
+/* ===== plain-text body (for the mailto fallback) ===== */
+function buildText(d){
+  var L = [];
+  L.push("NCM PHASE FEEDBACK — " + d.memberId);
+  L.push("------------------------------");
+  L.push("Member       : " + d.name + " (" + d.memberId + ")");
+  L.push("Program      : " + d.program);
+  L.push("Contact      : " + d.phone + (d.email ? " | " + d.email : ""));
+  L.push("Phase        : " + d.phase + " (" + d.day + ")");
+  L.push("Task         : " + d.task);
+  L.push("Result       : " + d.result);
+  L.push("Tools used   : " + d.tools);
+  L.push("Evidence     : " + d.evidence);
+  L.push("What I learned : " + d.learned);
+  L.push("Understand   : " + d.understand + "/5");
+  L.push("Applied      : " + d.apply + "/5");
+  L.push("Satisfaction : " + d.satisfaction + "/5");
+  L.push("Challenges   : " + (d.challenges || "-"));
+  L.push("Improvement  : " + (d.improve || "-"));
+  L.push("");
+  L.push("Sent from Medha Program Management — NCM Part 01 & 02");
+  return L.join("\n");
+}
+
+/* ===== submit ===== */
+function post(path, payload, ms){
+  return new Promise(function(resolve, reject){
+    var ctrl = new AbortController();
+    var timer = setTimeout(function(){ ctrl.abort(); }, ms || CFG.timeoutMs);
+    fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    }).then(function(r){ clearTimeout(timer); return r.text(); })
+      .then(function(t){ resolve(t); })
+      .catch(function(e){ clearTimeout(timer); reject(e); });
+  });
+}
+
+function send(d, btn){
+  var bodyHtml = buildBody(d);
+  var payload = {
+    action: "sendMail",
+    payload: {
+      recipients: [{ email: CFG.to, name: d.name }],
+      cc: CFG.cc ? [CFG.cc] : [],
+      subject: "NCM Phase Feedback — " + d.memberId + " — " + d.phase,
+      bodyHtml: bodyHtml,
+      footerUrl: CFG.footerUrl,
+      includeAutoNote: true
+    }
+  };
+  btn.disabled = true; btn.textContent = "Sending…";
+  post(CFG.backendUrl, payload)
+    .then(function(txt){
+      var ok = false;
+      try { var j = JSON.parse(txt); ok = !!(j && j.success); } catch(e){ ok = /"success"\s*:\s*true/.test(txt); }
+      if (!ok) throw new Error(txt.slice(0,120));
+      /* the sheet copy — works once the Apps Script is re-deployed */
+      return post(CFG.backendUrl, { action: CFG.saveAction, data: d }, 9000).catch(function(){});
+    })
+    .then(function(){
+      clearDraft();
+      showPop("Feedback sent", "Your feedback was emailed to the Operation Team with the Medha footer, and filed with your Member ID.");
+      resetForm();
+    })
+    .catch(function(){
+      mailtoFallback(d, buildText(d));
+      showPop("Mail app opened", "The server could not be reached, so your mail app was opened with the feedback ready to send.", "warn");
+    })
+    .then(function(){ btn.disabled = false; btn.textContent = "Submit Feedback"; });
+}
+
+$("send").addEventListener("click", function(){
+  if (!validate()){
+    showPop("A few fields are missing", "Please complete the highlighted fields and submit again.", "warn");
+    return;
+  }
+  send(collect(), this);
+});
+
+$("clear").addEventListener("click", function(){
+  resetForm(); clearDraft(); updateProgress();
+  showPop("Form cleared", "Everything is reset — you can start fresh.");
+});
+
+function resetForm(){
+  [].slice.call(form.querySelectorAll("input,textarea,select")).forEach(function(el){
+    if (el.type === "text" || el.type === "tel" || el.type === "email" || el.tagName === "TEXTAREA") el.value = "";
+    if (el.tagName === "SELECT") el.value = "";
+  });
+  [].slice.call(document.querySelectorAll(".seg")).forEach(function(s){
+    s.dataset.value = "";
+    [].slice.call(s.querySelectorAll("button")).forEach(function(x){ x.classList.remove("on"); });
+    moveThumb(s);
+  });
+  [].slice.call(document.querySelectorAll(".chip")).forEach(function(c){ c.classList.remove("on"); });
+  $("f_day").value = "Select a phase";
+  $("f_task").placeholder = "Which task did you work on for this phase?";
+  updateProgress();
+}
+
+/* ===== boot ===== */
+prefill();
+loadDraft();
+[].slice.call(form.querySelectorAll("input,textarea,select")).forEach(function(el){ el.addEventListener("input", saveDraft); });
+setTimeout(function(){ moveThumb(document.querySelector(".seg")); }, 60);
+updateProgress();
+
+})();
+</script>
+</body>
+</html>

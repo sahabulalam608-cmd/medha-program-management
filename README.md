@@ -81,6 +81,37 @@ Certificate of Appreciation for the program members:
 carries the `createAppreciationDocs` action). Without it the button says so
 instead of failing silently.
 
+## The NCM feedback page (`feedback.html`)
+
+A separate, very light page — it opens on its own, without the portal:
+
+**https://medha-program-management.pages.dev/feedback.html**
+
+It collects the NCM Part 01 / Part 02 phase feedback that the process
+document asks for:
+
+1. **Member information** — name, Member ID, program, phone
+2. **Phase & task** — the phase (01–04), the timeline day fills itself, the
+   phase tasks are pre-written and can be edited
+3. **Task results** — what the work finally produced
+4. **Tools used** — the AI tools and platforms (tap the chips to add them)
+5. **Practical evidence** — screenshots, documents, links, videos
+6. **Acknowledgement feedback** — what I learned, how much I understood (1–5),
+   how much I could apply (1–5), satisfaction (1–5), challenges, improvement
+   areas
+
+On **Submit Feedback** it shows the iOS-style popup and sends the feedback
+**by email** to the Operation Team — with the Medha banner and footer image —
+and also files the row in the **NCM Feedback** tab of the program sheet.
+
+- The email goes through the Apps Script (`sendMail`) — if the server cannot
+  be reached the mail app opens with everything written out, so nothing is lost.
+- The sheet copy needs the backend: re-deploy `backend/Code.gs` (it carries
+  the new `saveFeedback` action). The email works without it.
+- A half-filled form is kept on the device as a draft; **Clear** removes it.
+- A member can be pre-filled with
+  `feedback.html?memberId=NCM-P2-01&name=Sohel+Razzak&program=NCM+Part+02`.
+
 ## The three spreadsheets
 
 | Spreadsheet | ID |
