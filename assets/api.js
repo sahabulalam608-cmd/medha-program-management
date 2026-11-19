@@ -4125,16 +4125,40 @@ const Api = (() => {
   ];
 
   /* --- Apps Script backend --- */
-  const backendCall = async (action, data) => {
+  /* Every backend call is on a timer. The Apps Script can be slow (cold
+     start, three spreadsheets, a rebuild) or simply unreachable — without a
+     timeout the portal would wait for it forever and look frozen. */
+  const BACKEND_TIMEOUT = 12_000;   // a normal answer always comes faster
+
+  const backendCall = async (action, data, timeoutMs) => {
     const url = getBackendUrl();
     if (!url) throw new Error("No backend URL configured");
-    // GAS hack: text/plain avoids CORS preflight
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action, ...(data || {}) }),
-    });
-    return res.json();
+    const ms = timeoutMs || BACKEND_TIMEOUT;
+    const ctl = ("AbortController" in window) ? new AbortController() : null;
+    let timer = null;
+    if (ctl) timer = setTimeout(() => { try { ctl.abort(); } catch (e) {} }, ms);
+    try {
+      // GAS hack: text/plain avoids CORS preflight
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action, ...(data || {}) }),
+        signal: ctl ? ctl.signal : undefined,
+      });
+      if (!res.ok) {
+        const err = new Error("The server answered with HTTP " + res.status + ".");
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    } catch (e) {
+      if (e && e.name === "AbortError") {
+        throw new Error("The backend did not answer within " + Math.round(ms / 1000) + "s.");
+      }
+      throw e;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   };
 
   /* --- localStorage persistence (instant paint on repeat visits) --- */
@@ -4225,13 +4249,7 @@ const Api = (() => {
       const shape = Api.checkBackendUrl(target);
       if (!shape.ok) return { ok: false, message: shape.message };
       try {
-        const res = await fetch(target, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "ping" }),
-        });
-        if (!res.ok) return { ok: false, message: "The server answered with HTTP " + res.status + "." };
-        const data = await res.json();
+        const data = await backendCall("ping", {}, 7000);
         if (data && data.success) {
           return { ok: true, message: "Connected.", account: data.account || "", version: data.version || "" };
         }
@@ -4300,16 +4318,21 @@ const Api = (() => {
         backgroundRefresh();
         return cached;
       }
-      /* stale/incomplete cache — do not trust it for PART-2 profiles */
-      if (cached && !p2ok(cached)) {
-        try { localStorage.removeItem(LS_KEY); } catch (e) {}
-        cache.clear();
+      /* The cache is still good enough to paint with — keep it and let the
+         fresh data arrive in the background. Throwing it away made every
+         single visit wait for the network again. */
+      if (cached && !force) {
+        backgroundRefresh();
+        return cached;
       }
 
-      /* Cold start: one wait for the sheet, then it is cached for next time.
-         Backend list often lacks Master File phone/address — always enrich PART-2. */
-      const backend = getBackendUrl();
-      if (backend) {
+      /* Cold start: the sheet and the backend run at the SAME time and the
+         first one to answer wins. The sheet is usually the quicker of the two,
+         so the portal paints in about a second instead of waiting for the
+         Apps Script (which can take many seconds on a cold start). */
+      const backendPath = (async () => {
+        const backend = getBackendUrl();
+        if (!backend) return null;
         try {
           const r = await backendCall("getAllMembers");
           if (r && r.success && r.data) {
@@ -4334,8 +4357,27 @@ const Api = (() => {
             }
           }
         } catch (e) { console.warn("Backend getAllMembers failed, falling back", e); }
+        return null;
+      })();
+
+      const sheetPath = (async () => {
+        try { return await fetchAllMembers(); }
+        catch (e) { console.warn("Sheet fetch failed", e); return null; }
+      })();
+
+      const first = await Promise.race([
+        backendPath.then((d) => ({ src: "backend", data: d })),
+        sheetPath.then((d) => ({ src: "sheet", data: d })),
+      ]);
+      if (first && first.data) {
+        /* the slower one keeps running and swaps the data in when it lands */
+        const other = first.src === "backend" ? sheetPath : backendPath;
+        other.then((d) => { if (d) backgroundRefresh(); });
+        return first.data;
       }
-      return fetchAllMembers();
+      /* both paths failed — last chance */
+      const last = await Promise.all([backendPath, sheetPath]);
+      return last.find(Boolean) || fetchAllMembers();
     },
 
     /** Called by the app when the background refresh lands, to repaint. */
