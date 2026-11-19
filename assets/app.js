@@ -1089,7 +1089,7 @@ const App = (() => {
           window.__mpmAll = fresh._all || [];
           if (state.view === view) render(view, fresh);
         }).catch(() => {});
-        Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+        Api.getNcmMaster().then(m => { state.master = m; refreshOpenDrawer(); }).catch(() => {});
       }
       return;
     }
@@ -1099,7 +1099,7 @@ const App = (() => {
       const data = await Api.getMembers();
       state.dataAt = Date.now();
       paintNow(data);
-      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      Api.getNcmMaster().then(m => { state.master = m; refreshOpenDrawer(); }).catch(() => {});
     } catch (err) {
       renderError(err);
     }
@@ -1477,6 +1477,7 @@ const App = (() => {
   const openMemberDrawer = (memberId) => {
     const m = (window.__mpmAll || []).find(x => x.memberId === memberId);
     if (!m) return;
+    state.openMember = memberId;
     /* Part-1 NCM Master (by id). For Part-2 most fields live on the member row
        from Batch-01 Master File — match Part-1 master only as a fallback. */
     let prof = (state.master || []).find(x => x.memberId === memberId) || {};
@@ -1594,7 +1595,19 @@ const App = (() => {
       paintAtt();
     };
     pane.innerHTML = panes.profile();
+    /* remember the open tab so a repaint can bring the drawer back as it was */
+    const activeTab = state.openDrawerTab || "profile";
+    if (activeTab !== "profile") {
+      const pill = document.querySelector(`.dtab[data-dtab="${activeTab}"]`);
+      if (pill) {
+        document.querySelectorAll(".dtab").forEach(x => x.classList.remove("active"));
+        pill.classList.add("active");
+        if (activeTab === "attendance") ensureTrackerThen();
+        else pane.innerHTML = panes[activeTab]();
+      }
+    }
     document.querySelectorAll(".dtab").forEach(t => t.addEventListener("click", () => {
+      state.openDrawerTab = t.dataset.dtab;
       document.querySelectorAll(".dtab").forEach(x => x.classList.remove("active"));
       t.classList.add("active");
       if (t.dataset.dtab === "attendance") ensureTrackerThen();
@@ -1606,7 +1619,15 @@ const App = (() => {
     });
   };
 
+  /* Bring the open drawer back after a repaint — the page is rebuilt, so the
+     drawer node is gone and the fresh profile fields have to be re-shown. */
+  const refreshOpenDrawer = () => {
+    if (!state.openMember) return;
+    try { openMemberDrawer(state.openMember); } catch (e) {}
+  };
+
   const closeMemberDrawer = () => {
+    state.openMember = null;
     const d = document.getElementById("memberDrawer");
     if (d) d.remove();
   };
@@ -1875,7 +1896,7 @@ const App = (() => {
     // join the NCM Master File so the result card has email / mobile / facebook
     let master = state.master && state.master.length ? state.master : (Api.getNcmMasterCached?.() || []);
     if (!master.length) {
-      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      Api.getNcmMaster().then(m => { state.master = m; refreshOpenDrawer(); }).catch(() => {});
     } else {
       state.master = master;
     }
@@ -3859,7 +3880,7 @@ const App = (() => {
     // join the NCM Master File so the result card has email / mobile / facebook
     let master = state.master && state.master.length ? state.master : (Api.getNcmMasterCached?.() || []);
     if (!master.length) {
-      Api.getNcmMaster().then(m => { state.master = m; }).catch(() => {});
+      Api.getNcmMaster().then(m => { state.master = m; refreshOpenDrawer(); }).catch(() => {});
     } else {
       state.master = master;
     }
@@ -6695,6 +6716,9 @@ const App = (() => {
       if (v === "members" || v === "overview" || v === "batches" || v === "payments" || v === "mail") {
         try { render(v, fresh); } catch (e) {}
       }
+      /* the repaint wipes the page — put the open member drawer back so the
+         profile fields (phone, address…) show the fresh values */
+      refreshOpenDrawer();
     });
   }
   if (typeof Api.startAutoSync === "function") {
