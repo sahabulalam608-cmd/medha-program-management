@@ -123,6 +123,7 @@ function handleApi_(action, data) {
     case "markMailUnread": return markMailUnread(data.threadId);
     case "getMailBody": return getMailBody(data.threadId);
     case "sendMail": return sendProgramMails(data.payload || data);
+    case "saveFeedback": return saveFeedback_(data.data || data.payload || data);
     case "setupGmail": return setupGmail();
     case "markMailUnseen": return markMailUnseen();
     case "fetchLogMailBody": return fetchLogMailBody(data.subject || "", data.recipient || "");
@@ -558,6 +559,56 @@ function getProgramMembers(programName, forceRefresh) {
     return result;
   } catch (err) {
     return { success: false, message: err.message, members: [] };
+  }
+}
+
+/* ========== NCM phase feedback → sheet ========== */
+var FEEDBACK_HEADERS = [
+  "Received At", "Member ID", "Name", "Program", "Phone", "Email",
+  "Phase", "Timeline Day", "Task", "Task Result", "Tools Used", "Evidence",
+  "What I Learned", "Understand /5", "Applied /5", "Satisfaction /5",
+  "Challenges", "Improvement Areas"
+];
+
+/**
+ * Store one phase feedback row in the "NCM Feedback" tab of the program
+ * sheet — the permanent learning record the process doc asks for.
+ * Creates the tab (with headers) the first time it is used.
+ */
+function saveFeedback_(d) {
+  try {
+    if (!d || !d.memberId) return { success: false, message: "Member ID is required" };
+    var ss = SpreadsheetApp.openById(CONFIG.PROGRAM_SPREADSHEET_ID);
+    var sh = ss.getSheetByName("NCM Feedback");
+    if (!sh) {
+      sh = ss.insertSheet("NCM Feedback");
+      sh.getRange(1, 1, 1, FEEDBACK_HEADERS.length).setValues([FEEDBACK_HEADERS]);
+      sh.setFrozenRows(1);
+    }
+    var row = [
+      new Date(),
+      String(d.memberId || "").trim(),
+      String(d.name || "").trim(),
+      String(d.program || "").trim(),
+      String(d.phone || "").trim(),
+      String(d.email || "").trim(),
+      String(d.phase || "").trim(),
+      String(d.day || "").trim(),
+      String(d.task || "").trim(),
+      String(d.result || "").trim(),
+      String(d.tools || "").trim(),
+      String(d.evidence || "").trim(),
+      String(d.learned || "").trim(),
+      Number(d.understand || 0),
+      Number(d.apply || 0),
+      Number(d.satisfaction || 0),
+      String(d.challenges || "").trim(),
+      String(d.improve || "").trim()
+    ];
+    sh.appendRow(row);
+    return { success: true, row: sh.getLastRow() - 1 };
+  } catch (err) {
+    return { success: false, message: err.message };
   }
 }
 
