@@ -26,6 +26,21 @@ A static website that reads and writes the program's Google Sheets.
 | `_headers` | Security headers — Cloudflare Pages and Netlify read this automatically |
 | `_redirects` | Sends every address to the portal |
 
+## Speed (why the portal opens at once)
+
+- **The backend never blocks the screen.** The Apps Script and the sheets are
+  read at the same time and the first one to answer wins, so the Overview
+  paints in about a second even when the script is slow or unreachable.
+- **Every backend call has a timer** (12 s for data, 7 s for the connection
+  check), so a hung script can no longer freeze the portal.
+- **The cached data is kept** — an incomplete cache still paints the screen and
+  refreshes quietly in the background.
+- **The certificate artwork loads on demand.** The two Appreciation data-image
+  files (~160 KB) are fetched the first time the Appreciation page is opened,
+  not on every visit.
+- **The logos are WebP** (or inlined), so the first load carries about 158 KB
+  instead of half a megabyte.
+
 ## The sidebar launchers
 
 Three items in the sidebar open something outside the portal:
