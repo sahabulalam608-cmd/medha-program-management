@@ -723,6 +723,39 @@ const Api = (() => {
     _p2FromBatch01: !!fromBatch01,
   });
 
+  /* The Batch-01 Master File holds the profile fields (phone, whatsapp,
+     address, facebook, medha login, transaction id). The Apps Script only
+     returns the raw sheet rows, so EVERY path that ships backend data has to
+     merge the Master File in — otherwise the enriched fields are wiped and
+     the member drawer falls back to "—". */
+  let _b01Cache = { t: 0, v: null };
+  const fetchBatch01Cached = async () => {
+    const now = Date.now();
+    if (_b01Cache.v && now - _b01Cache.t < 30000) return _b01Cache.v;
+    const b01 = await fetchBatch01();
+    _b01Cache = { t: now, v: b01 };
+    return b01;
+  };
+
+  const enrichWithBatch01 = async (data) => {
+    if (!data) return data;
+    try {
+      const b01 = await fetchBatch01Cached();
+      const p2old = data["NCM PART-2"] || [];
+      const m = mergeBatch01(p2old, b01);
+      return buildMemberSet(
+        data["NCM PART-1"] || [],
+        m.p2,
+        m.source || data._p2Source,
+        m.note || data._p2Note,
+        m.fromBatch01
+      );
+    } catch (err) {
+      console.warn("Master File enrich failed", err);
+      return data;
+    }
+  };
+
   const fetchAllMembers = async () => {
     try {
       const [p1, p2old, b01] = await Promise.all([
@@ -773,7 +806,10 @@ const Api = (() => {
     backgroundRefresh._running = true;
     const work = getBackendUrl()
       ? backendCall("getAllMembers")
-          .then(r => (r && r.success) ? r.data : fetchAllMembers())
+          /* the Apps Script sends the raw sheet rows — merge the Batch-01
+             Master File in, exactly like the first load does, so the phone,
+             address and the other profile fields never disappear */
+          .then(r => (r && r.success && r.data) ? enrichWithBatch01(r.data) : fetchAllMembers())
           .catch(() => fetchAllMembers())
       : fetchAllMembers();
     work.then(fresh => {
@@ -4336,21 +4372,7 @@ const Api = (() => {
         try {
           const r = await backendCall("getAllMembers");
           if (r && r.success && r.data) {
-            let data = r.data;
-            try {
-              const b01 = await fetchBatch01();
-              const p2old = data["NCM PART-2"] || [];
-              const m = mergeBatch01(p2old, b01);
-              data = buildMemberSet(
-                data["NCM PART-1"] || [],
-                m.p2,
-                m.source || data._p2Source,
-                m.note || data._p2Note,
-                m.fromBatch01
-              );
-            } catch (enrichErr) {
-              console.warn("Master File enrich failed", enrichErr);
-            }
+            let data = await enrichWithBatch01(r.data);
             if (p2ok(data)) {
               writeLocalCache(data);
               return data;
