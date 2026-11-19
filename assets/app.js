@@ -166,7 +166,7 @@ const App = (() => {
     } catch (e) {}
     const isOta = String(username).toLowerCase() === "ota";
     return isOta
-      ? { file: "ota-logo-600.webp", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
+      ? { file: "ota-logo-600.png", mark: "ota-mark-128.png", wide: true,  label: "Online Tech Academy" }
       : { file: "medha-logo-256.webp", mark: "medha-logo-256.webp", wide: false, label: "Medha" };
   };
 
